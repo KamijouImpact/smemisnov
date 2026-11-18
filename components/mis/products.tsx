@@ -152,7 +152,8 @@ export function Catalog({ db }: Props) {
     <>
       <p className="notice">
         Open the section you need. Start with a category and brand, then add a
-        product, its options, and pack sizes.
+        product, its options, and pack sizes. A draft becomes active when it has
+        an active option and pack size.
       </p>
       <div className="two-columns">
         <Panel collapsible open={db.category.length === 0} title="Categories">
@@ -243,12 +244,12 @@ export function Catalog({ db }: Props) {
             select(
               "product_id",
               "Product",
-              db.product.filter((r) => r.status === "Active"),
+              db.product.filter((r) => r.status !== "Archived"),
               "product_id",
               (r) =>
                 `${find(db, "brand", r.brand_id).brand_name || "Unbranded"} · ${r.product_name} · ${r.model_or_style || ""}`,
             ),
-            text("variation_name", "Option name (for example, Red / Large)"),
+            text("variation_name", "Option name (blank for Standard)", false),
             text("size", "Size", false),
             text("color", "Color", false),
             text("flavor", "Flavor", false),

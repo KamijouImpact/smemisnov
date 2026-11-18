@@ -22,10 +22,12 @@ BEGIN
  AND h.effective_at>=now()-make_interval(days=>rule.maximum_age_days);
  END IF;
  SELECT count(*) INTO count_sources FROM public.price_reference WHERE price_request_id=id;
- SELECT avg(x.new_price) INTO median FROM (
- SELECT h.new_price,row_number() OVER(ORDER BY h.new_price) rank FROM public.price_reference r JOIN public.price_history h USING(price_history_id) WHERE r.price_request_id=id
- ) x WHERE x.rank IN ((count_sources+1)/2,(count_sources+2)/2);
- cutoff:=floor(median*(1+rule.allowance_percent/100)*100)/100;
+ IF count_sources>=rule.minimum_stores THEN
+  SELECT avg(x.new_price) INTO median FROM (
+  SELECT h.new_price,row_number() OVER(ORDER BY h.new_price) rank FROM public.price_reference r JOIN public.price_history h USING(price_history_id) WHERE r.price_request_id=id
+  ) x WHERE x.rank IN ((count_sources+1)/2,(count_sources+2)/2);
+  cutoff:=floor(median*(1+rule.allowance_percent/100)*100)/100;
+ END IF;
  reason:=CASE WHEN NOT reliable THEN 'Unreliable Product Match' WHEN rule.rule_id IS NULL THEN 'No Active Rule' WHEN count_sources<rule.minimum_stores THEN 'Too Few References' WHEN proposal>cutoff THEN 'Above Reference' ELSE NULL END;
  UPDATE public.price_request SET reference_count=count_sources,reference_median=median,allowed_price=cutoff,review_reason=reason WHERE price_request_id=id;
  IF reason IS NULL THEN PERFORM private.activate_price(id,'System',NULL,'Within the current price rule.'); END IF;

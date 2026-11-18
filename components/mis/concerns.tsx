@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ActionForm } from "./form";
 import { Panel, Table, Status } from "./table";
 import { Props, area, choice, num, select, text } from "./fields";
-import { Row, date, label, peso } from "@/lib/mis/types";
+import { Row, date, find, label, peso } from "@/lib/mis/types";
 export function Concerns({
   db,
   admin,
@@ -13,19 +13,30 @@ export function Concerns({
 }: { customer: boolean; publicRows: Row[]; requestedItem?: string } & Props) {
   const [selected, setSelected] = useState(requestedItem || "");
   const listing = publicRows.find((r) => String(r.store_price_id) === selected);
-  const reportOptions = select(
-    "customer_report_id",
-    "Open report",
-    db.customer_report.filter((r) => r.status !== "Closed"),
-    "customer_report_id",
-    (r) => `#${r.customer_report_id} · ${r.description}`,
+  const openReports = db.customer_report.filter((r) => r.status !== "Closed");
+  const awaitingRequest = openReports.filter(
+    (r) => !r.owner_response_requested_at && !r.owner_response,
   );
+  const awaitingResponse = openReports.filter(
+    (r) =>
+      r.owner_response_requested_at &&
+      !r.owner_response &&
+      find(db, "store_price", r.store_price_id).store_price_id,
+  );
+  const reportField = (reports: Row[]) =>
+    select(
+      "customer_report_id",
+      "Open report",
+      reports,
+      "customer_report_id",
+      (r) => `#${r.customer_report_id} · ${r.description}`,
+    );
   return (
     <>
       {customer && (
         <Panel
           title="Report a price problem"
-          description="Choose the exact product and package. Tell us what you saw or were charged. The Owner can respond, and the Administrator reviews the records and available evidence."
+          description="Choose the exact product and package. Tell us what you saw or were charged. The Administrator reviews the available evidence and can request a response from the store Owner."
         >
           <label className="standalone-field">
             <span>Store product</span>
@@ -84,6 +95,7 @@ export function Concerns({
             "store_price_id",
             "description",
             "status",
+            "owner_response_requested_at",
             "owner_response",
             "outcome",
           ]}
@@ -93,17 +105,16 @@ export function Concerns({
             {
               key: "store_price_id",
               label: "Product",
-              render: (r) =>
-                customer
-                  ? (() => {
-                      const p = publicRows.find(
-                        (p) => p.store_price_id === r.store_price_id,
-                      );
-                      return p
-                        ? `${p.store_name} · ${p.product_name} · ${p.variation_name} · ${p.unit_name}`
-                        : `Listing #${r.store_price_id}`;
-                    })()
-                  : label(db, r.store_price_id),
+              render: (r) => {
+                if (find(db, "store_price", r.store_price_id).store_price_id)
+                  return label(db, r.store_price_id);
+                const p = publicRows.find(
+                  (p) => p.store_price_id === r.store_price_id,
+                );
+                return p
+                  ? `${p.store_name} · ${p.product_name} · ${p.variation_name} · ${p.unit_name}`
+                  : `Listing #${r.store_price_id}`;
+              },
             },
             {
               key: "listed_price",
@@ -122,6 +133,18 @@ export function Concerns({
             },
             { key: "description", label: "What happened" },
             { key: "evidence_reference", label: "Evidence reference" },
+            {
+              key: "owner_response_requested_at",
+              label: "Owner follow-up",
+              render: (r) => {
+                if (r.owner_response)
+                  return `Response received · ${date(r.responded_at)}`;
+                if (r.status === "Closed") return "Closed without a response";
+                return r.owner_response_requested_at
+                  ? `Response requested · ${date(r.owner_response_requested_at)}`
+                  : "Response not requested";
+              },
+            },
             { key: "owner_response", label: "Owner response" },
             {
               key: "status",
@@ -130,44 +153,80 @@ export function Concerns({
             },
             { key: "outcome", label: "Result" },
             { key: "outcome_details", label: "Review details" },
+            {
+              key: "no_response_reason",
+              label: "Reason for closing without a response",
+            },
           ]}
         />
       </Panel>
       {!customer &&
         (admin ? (
-          <Panel
-            title="Review a price report"
-            description="Use the report’s product, package, and transaction time to check price history, promotion records, and recorded sales. Missing evidence does not prove a violation."
-          >
-            <ActionForm
-              action="review_report"
-              fields={[
-                reportOptions,
-                choice("status", "Report status", ["Under Review", "Closed"]),
-                choice(
-                  "outcome",
-                  "Result",
-                  [
-                    "Confirmed Discrepancy",
-                    "Package Mismatch",
-                    "Insufficient Evidence",
-                    "No Discrepancy Established",
-                  ],
-                  false,
-                ),
-                area("outcome_details", "What you found"),
-              ]}
-              submit="Save review"
-            />
-          </Panel>
+          <>
+            {awaitingRequest.length > 0 && (
+              <Panel
+                title="Request an Owner response"
+                description="The request appears in the Owner’s workspace and moves the report to Under Review."
+              >
+                <ActionForm
+                  action="request_report_response"
+                  fields={[reportField(awaitingRequest)]}
+                  submit="Request response"
+                />
+              </Panel>
+            )}
+            {openReports.length > 0 && (
+              <Panel
+                title="Review a price report"
+                description="Use the report’s product, package, and transaction time to check price history, promotion records, and recorded sales. Explain why you’re closing the report if an Owner response is unavailable."
+              >
+                <ActionForm
+                  action="review_report"
+                  fields={[
+                    reportField(openReports),
+                    choice("status", "Report status", [
+                      "Under Review",
+                      "Closed",
+                    ]),
+                    choice(
+                      "outcome",
+                      "Result",
+                      [
+                        "Confirmed Discrepancy",
+                        "Package Mismatch",
+                        "Insufficient Evidence",
+                        "No Discrepancy Established",
+                      ],
+                      false,
+                    ),
+                    area("outcome_details", "What you found"),
+                    {
+                      ...area(
+                        "no_response_reason",
+                        "Reason for closing without an Owner response",
+                        false,
+                      ),
+                      help: "Required when closing a report without an Owner response.",
+                    },
+                  ]}
+                  submit="Save review"
+                />
+              </Panel>
+            )}
+          </>
         ) : (
-          <Panel title="Respond to a report">
-            <ActionForm
-              action="report_response"
-              fields={[reportOptions, area("owner_response", "Your response")]}
-              submit="Send response"
-            />
-          </Panel>
+          awaitingResponse.length > 0 && (
+            <Panel title="Respond to a report">
+              <ActionForm
+                action="report_response"
+                fields={[
+                  reportField(awaitingResponse),
+                  area("owner_response", "Your response"),
+                ]}
+                submit="Send response"
+              />
+            </Panel>
+          )
         ))}
     </>
   );

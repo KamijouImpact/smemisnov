@@ -56,27 +56,48 @@ BEGIN
  IF n NOT BETWEEN 0 AND 100000000 THEN RAISE EXCEPTION 'Enter a valid low-stock level.'; END IF;
  UPDATE public.store_product SET low_stock_level=n WHERE store_product_id=sp.store_product_id;
  ELSIF action='customer_report' THEN
- IF nullif(a->>'transaction_at','')::timestamptz>now() THEN RAISE EXCEPTION 'The transaction time cannot be in the future.'; END IF;
  PERFORM private.require_role(ARRAY['Customer']);
- SELECT * INTO STRICT opt FROM public.store_price WHERE store_price_id=(a->>'store_price_id')::bigint;
- IF NOT private.active_option(opt.store_price_id) OR opt.regular_price IS NULL THEN RAISE EXCEPTION 'Choose an active listed product.'; END IF;
+ IF nullif(a->>'transaction_at','')::timestamptz>now() THEN RAISE EXCEPTION 'The transaction time cannot be in the future.'; END IF;
+ SELECT * INTO opt FROM public.store_price
+ WHERE store_price_id=(a->>'store_price_id')::bigint AND regular_price IS NOT NULL AND private.active_option(store_price_id);
+ IF NOT FOUND THEN RAISE EXCEPTION 'Choose an active listed product.'; END IF;
  INSERT INTO public.customer_report(customer_id,store_price_id,listed_price,charged_price,transaction_at,description,evidence_reference,submitted_at)
  VALUES(uid,opt.store_price_id,private.money(a->>'listed_price'),CASE WHEN nullif(a->>'charged_price','') IS NOT NULL THEN private.money(a->>'charged_price') END,nullif(a->>'transaction_at','')::timestamptz,private.required(a->>'description','report details'),nullif(trim(a->>'evidence_reference'),''),now()) RETURNING customer_report_id INTO id;
+ ELSIF action='request_report_response' THEN
+ PERFORM private.require_role(ARRAY['Administrator']);
+ UPDATE public.customer_report
+ SET owner_response_requested_by=uid,owner_response_requested_at=now(),status='Under Review'
+ WHERE customer_report_id=(a->>'customer_report_id')::bigint AND status<>'Closed'
+ AND owner_response IS NULL AND owner_response_requested_at IS NULL
+ RETURNING customer_report_id INTO id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Choose an open report that is awaiting a response request.'; END IF;
  ELSIF action='report_response' THEN
  PERFORM private.require_role(ARRAY['Owner']);
- SELECT * INTO STRICT cr FROM public.customer_report WHERE customer_report_id=(a->>'customer_report_id')::bigint FOR UPDATE;
- IF NOT private.can_price(cr.store_price_id) THEN RAISE EXCEPTION 'Choose a report for your own store.'; END IF;
+ SELECT * INTO cr FROM public.customer_report
+ WHERE customer_report_id=(a->>'customer_report_id')::bigint AND private.can_price(store_price_id) FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Choose a report for your own store.'; END IF;
  IF cr.owner_response IS NOT NULL THEN RAISE EXCEPTION 'Your response is already recorded. Contact the Administrator if a correction is needed.'; END IF;
  IF cr.status='Closed' THEN RAISE EXCEPTION 'This report is already closed.'; END IF;
+ IF cr.owner_response_requested_at IS NULL THEN RAISE EXCEPTION 'The Administrator has not requested a response.'; END IF;
  UPDATE public.customer_report SET status='Under Review',owner_response=private.required(a->>'owner_response','response'),responded_by=uid,responded_at=now() WHERE customer_report_id=cr.customer_report_id;
  ELSIF action='review_report' THEN
  PERFORM private.require_role(ARRAY['Administrator']);
- SELECT * INTO STRICT cr FROM public.customer_report WHERE customer_report_id=(a->>'customer_report_id')::bigint FOR UPDATE;
+ SELECT * INTO cr FROM public.customer_report WHERE customer_report_id=(a->>'customer_report_id')::bigint FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Choose an open report.'; END IF;
  IF cr.status='Closed' THEN RAISE EXCEPTION 'This report is already closed.'; END IF;
- status_value:=a->>'status'; IF status_value NOT IN ('Under Review','Closed') THEN RAISE EXCEPTION 'Choose Under Review or Closed.'; END IF;
+ status_value:=a->>'status'; IF status_value IS NULL OR status_value NOT IN ('Under Review','Closed') THEN RAISE EXCEPTION 'Choose Under Review or Closed.'; END IF;
+ IF status_value='Closed' AND cr.owner_response IS NULL AND cr.owner_response_requested_at IS NULL THEN
+  RAISE EXCEPTION 'Request an Owner response before closing this report.';
+ END IF;
  title:=nullif(a->>'outcome','');
  IF status_value='Closed' AND (title IS NULL OR title NOT IN ('Confirmed Discrepancy','Package Mismatch','Insufficient Evidence','No Discrepancy Established')) THEN RAISE EXCEPTION 'Choose a closure outcome.'; END IF;
- UPDATE public.customer_report SET status=status_value,reviewed_by=uid,outcome=CASE WHEN status_value='Closed' THEN title END,outcome_details=private.required(a->>'outcome_details','review findings'),closed_at=CASE WHEN status_value='Closed' THEN now() END WHERE customer_report_id=cr.customer_report_id;
+ UPDATE public.customer_report
+ SET status=status_value,reviewed_by=uid,outcome=CASE WHEN status_value='Closed' THEN title END,
+ outcome_details=private.required(a->>'outcome_details','review findings'),
+ no_response_reason=CASE WHEN status_value='Closed' AND cr.owner_response IS NULL
+   THEN private.required(a->>'no_response_reason','reason for closing without an Owner response') END,
+ closed_at=CASE WHEN status_value='Closed' THEN now() END
+ WHERE customer_report_id=cr.customer_report_id;
  ELSE RAISE EXCEPTION 'Unknown action.';
  END IF;
  RETURN jsonb_build_object('id',id,'message','Saved successfully.');

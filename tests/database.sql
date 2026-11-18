@@ -2,7 +2,7 @@
 BEGIN;
 DO $$
 DECLARE admin_id uuid:=gen_random_uuid(); owner_a uuid:=gen_random_uuid(); owner_b uuid:=gen_random_uuid(); owner_c uuid:=gen_random_uuid(); customer_id uuid:=gen_random_uuid();
- cat bigint; brand bigint; prod bigint; var bigint; piece bigint; box bigint; store_a bigint; store_b bigint; store_c bigint; pa bigint; pb bigint; pc bigint; stock_a bigint; req bigint; req2 bigint; tx bigint; rev bigint; event bigint; entry bigint; report bigint; result jsonb;
+ cat bigint; brand bigint; prod bigint; var bigint; piece bigint; box bigint; store_a bigint; store_b bigint; store_c bigint; pa bigint; pb bigint; pc bigint; stock_a bigint; req bigint; req2 bigint; tx bigint; rev bigint; event bigint; entry bigint; report bigint; no_reply_report bigint; result jsonb;
 BEGIN
  INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES(admin_id,admin_id||'@example.test','{}'),(owner_a,owner_a||'@example.test','{}'),(owner_b,owner_b||'@example.test','{}'),(owner_c,owner_c||'@example.test','{}'),(customer_id,customer_id||'@example.test','{}');
  UPDATE public.user_account SET role='Administrator' WHERE user_id=admin_id;
@@ -12,9 +12,17 @@ BEGIN
  brand:=(public.mis_command('brand','{"brand_name":"Néstle Integration"}') ->>'id')::bigint;
  BEGIN PERFORM public.mis_command('brand','{"brand_name":"nestle integration"}');RAISE EXCEPTION 'Expected duplicate-brand refusal';EXCEPTION WHEN unique_violation THEN NULL;END;
  prod:=(public.mis_command('product',jsonb_build_object('category_id',cat,'brand_id',brand,'product_name','Test sardines')) ->>'id')::bigint;
- var:=(public.mis_command('variation',jsonb_build_object('product_id',prod,'variation_name','Original','stock_unit','can','condition','New','net_quantity','0.155','net_unit','kg','allow_price_reference',true)) ->>'id')::bigint;
- ASSERT (SELECT net_quantity=155 AND net_unit='g' FROM public.product_variation WHERE variation_id=var),'Normalized grams';
+ ASSERT (SELECT status='Draft' FROM public.product WHERE product_id=prod),'Product is draft before an active variant and unit exist';
+ var:=(public.mis_command('variation',jsonb_build_object('product_id',prod,'stock_unit','can','condition','New','net_quantity','0.155','net_unit','kg','allow_price_reference',true)) ->>'id')::bigint;
+ ASSERT (SELECT net_quantity=155 AND net_unit='g' AND variation_name='Standard' FROM public.product_variation WHERE variation_id=var),'Normalized grams and default Standard variation';
  piece:=(public.mis_command('unit',jsonb_build_object('variation_id',var,'unit_name','can','stock_units',1)) ->>'id')::bigint;
+ ASSERT (SELECT status='Active' FROM public.product WHERE product_id=prod),'First active unit activates draft product';
+ BEGIN
+  PERFORM public.mis_command('catalog_status',jsonb_build_object('table','product_unit','id',piece,'status','Archived'));
+  RAISE EXCEPTION 'Expected last active unit archive refusal';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM NOT LIKE 'An active product needs an active option and pack size.%' THEN RAISE; END IF;
+ END;
  box:=(public.mis_command('unit',jsonb_build_object('variation_id',var,'unit_name','box of 24','stock_units',24)) ->>'id')::bigint;
  PERFORM set_config('request.jwt.claim.sub',owner_a::text,true);
  store_a:=(public.mis_command('store','{"store_name":"Test A","business_type":"General retail","address":"Test"}') ->>'id')::bigint;
@@ -34,12 +42,13 @@ BEGIN
  BEGIN PERFORM public.mis_command('review_price',jsonb_build_object('price_request_id',req,'decision','Approved','decision_reason','Self approval'));RAISE EXCEPTION 'Expected Owner review refusal';EXCEPTION WHEN others THEN IF SQLERRM='Expected Owner review refusal' THEN RAISE;END IF;END;
  PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);
  PERFORM public.mis_command('review_price',jsonb_build_object('price_request_id',req,'decision','Approved','decision_reason','Initial review.'));
+ PERFORM public.mis_command('rule','{"allowance_percent":"10","minimum_stores":"2","maximum_age_days":"30"}');
  PERFORM set_config('request.jwt.claim.sub',owner_b::text,true);
  PERFORM public.mis_command('list_unit',jsonb_build_object('sme_id',store_b,'unit_id',piece));
  SELECT s.store_price_id INTO pb FROM public.store_price s JOIN public.store_product sp USING(store_product_id) WHERE sp.sme_id=store_b AND s.unit_id=piece;
  req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',pb,'proposed_price','22'))->>'id')::bigint;
+ ASSERT (SELECT status='Pending Price Review' AND review_reason='Too Few References' AND reference_count=1 AND reference_median IS NULL AND allowed_price IS NULL FROM public.price_request WHERE price_request_id=req),'One reference is retained without median or cutoff below the minimum';
  PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);PERFORM public.mis_command('review_price',jsonb_build_object('price_request_id',req,'decision','Approved','decision_reason','Initial review.'));
- PERFORM public.mis_command('rule','{"allowance_percent":"10","minimum_stores":"2","maximum_age_days":"30"}');
  PERFORM set_config('request.jwt.claim.sub',owner_c::text,true);PERFORM public.mis_command('list_unit',jsonb_build_object('sme_id',store_c,'unit_id',piece));
  SELECT s.store_price_id INTO pc FROM public.store_price s JOIN public.store_product sp USING(store_product_id) WHERE sp.sme_id=store_c AND s.unit_id=piece;
  req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',pc,'proposed_price','23.10'))->>'id')::bigint;
@@ -89,18 +98,54 @@ BEGIN
  ASSERT NOT EXISTS(SELECT 1 FROM jsonb_array_elements(public.browse_products('')) r WHERE r?'latest_unit_cost' OR r?'stock_quantity' OR r?'owner_id'),'Public fields sanitized';
  PERFORM set_config('request.jwt.claim.sub',customer_id::text,true);
  report:=(public.mis_command('customer_report',jsonb_build_object('store_price_id',pa,'listed_price','18','charged_price','20','description','Charged more than the listed promotion','evidence_reference','Receipt reference'))->>'id')::bigint;
+ no_reply_report:=(public.mis_command('customer_report',jsonb_build_object('store_price_id',pa,'listed_price','18','description','No receipt available'))->>'id')::bigint;
+ BEGIN
+  PERFORM public.mis_command('request_report_response',jsonb_build_object('customer_report_id',report));
+  RAISE EXCEPTION 'Expected Customer response request refusal';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'You do not have access to this action.' THEN RAISE; END IF; END;
  BEGIN PERFORM public.mis_command('list_unit',jsonb_build_object('sme_id',store_a,'unit_id',piece));RAISE EXCEPTION 'Expected customer stock access refusal';EXCEPTION WHEN others THEN IF SQLERRM='Expected customer stock access refusal' THEN RAISE;END IF;END;
  BEGIN PERFORM public.mis_command('complete_registration','{"role":"Administrator","full_name":"Bad"}');RAISE EXCEPTION 'Expected admin escalation refusal';EXCEPTION WHEN others THEN IF SQLERRM='Expected admin escalation refusal' THEN RAISE;END IF;END;
+ PERFORM set_config('request.jwt.claim.sub',owner_a::text,true);
+ BEGIN
+  PERFORM public.mis_command('report_response',jsonb_build_object('customer_report_id',report,'owner_response','Premature response'));
+  RAISE EXCEPTION 'Expected Owner response request prerequisite';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'The Administrator has not requested a response.' THEN RAISE; END IF; END;
+ PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);
+ PERFORM public.mis_command('request_report_response',jsonb_build_object('customer_report_id',report));
+ ASSERT (SELECT status='Under Review' AND owner_response_requested_by=admin_id AND owner_response_requested_at IS NOT NULL FROM public.customer_report WHERE customer_report_id=report),'Request records Administrator and time';
+ PERFORM set_config('request.jwt.claim.sub',owner_b::text,true);
+ BEGIN
+  PERFORM public.mis_command('report_response',jsonb_build_object('customer_report_id',report,'owner_response','Wrong store'));
+  RAISE EXCEPTION 'Expected response refusal for another store';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'Choose a report for your own store.' THEN RAISE; END IF; END;
  PERFORM set_config('request.jwt.claim.sub',owner_a::text,true);PERFORM public.mis_command('report_response',jsonb_build_object('customer_report_id',report,'owner_response','We are checking the receipt.'));
  PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);PERFORM public.mis_command('review_report',jsonb_build_object('customer_report_id',report,'status','Closed','outcome','Confirmed Discrepancy','outcome_details','The receipt and promotion period confirm the difference.'));
- ASSERT (SELECT status='Closed' AND owner_response IS NOT NULL AND outcome='Confirmed Discrepancy' FROM public.customer_report WHERE customer_report_id=report),'Report response and outcome retained';
+ ASSERT (SELECT status='Closed' AND owner_response IS NOT NULL AND outcome='Confirmed Discrepancy' AND no_response_reason IS NULL FROM public.customer_report WHERE customer_report_id=report),'Report response and outcome retained';
+ BEGIN
+  PERFORM public.mis_command('review_report',jsonb_build_object('customer_report_id',no_reply_report,'status','Closed','outcome','Insufficient Evidence','outcome_details','The available evidence is insufficient.','no_response_reason','No response received.'));
+  RAISE EXCEPTION 'Expected request before closing without a response';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'Request an Owner response before closing this report.' THEN RAISE; END IF; END;
+ PERFORM public.mis_command('request_report_response',jsonb_build_object('customer_report_id',no_reply_report));
+ BEGIN
+  PERFORM public.mis_command('review_report',jsonb_build_object('customer_report_id',no_reply_report,'status','Closed','outcome','Insufficient Evidence','outcome_details','The available evidence is insufficient.'));
+  RAISE EXCEPTION 'Expected reason for closing without a response';
+ EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'Enter a valid reason for closing without an Owner response (up to 4000 characters).' THEN RAISE; END IF; END;
+ PERFORM public.mis_command('review_report',jsonb_build_object('customer_report_id',no_reply_report,'status','Closed','outcome','Insufficient Evidence','outcome_details','The available evidence is insufficient.','no_response_reason','No response received after follow-up.'));
+ ASSERT (SELECT status='Closed' AND owner_response IS NULL AND owner_response_requested_at IS NOT NULL AND no_response_reason='No response received after follow-up.' FROM public.customer_report WHERE customer_report_id=no_reply_report),'Closure without response retains request and justification';
  -- Store the fixture IDs for actual RLS checks below.
+ PERFORM set_config('mis.test.admin',admin_id::text,true);
  PERFORM set_config('mis.test.owner',owner_a::text,true);PERFORM set_config('mis.test.customer',customer_id::text,true);PERFORM set_config('mis.test.store',store_a::text,true);
 END $$;
 SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub',current_setting('mis.test.admin'),true);
+DO $$ BEGIN
+ ASSERT EXISTS(SELECT 1 FROM public.price_rule WHERE status='Active'),'Administrator sees active price rule';
+END $$;
 SELECT set_config('request.jwt.claim.sub',current_setting('mis.test.owner'),true);
 DO $$ BEGIN
  ASSERT (SELECT count(*)=1 FROM public.sme),'Owner sees own store only';
+ ASSERT NOT EXISTS(SELECT 1 FROM public.price_rule),'Owner cannot read price rules';
+ ASSERT EXISTS(SELECT 1 FROM public.product WHERE product_name='Test sardines'),'Owner can read the shared catalog';
  ASSERT NOT EXISTS(SELECT 1 FROM public.store_product WHERE sme_id<>current_setting('mis.test.store')::bigint),'Owner stock isolated';
  BEGIN UPDATE public.store_price SET regular_price=1;RAISE EXCEPTION 'Expected direct price-write refusal';EXCEPTION WHEN insufficient_privilege THEN NULL;END;
 END $$;
@@ -108,7 +153,16 @@ SELECT set_config('request.jwt.claim.sub',current_setting('mis.test.customer'),t
 DO $$ BEGIN
  ASSERT NOT EXISTS(SELECT 1 FROM public.store_product),'Customer cannot read private stock';
  ASSERT NOT EXISTS(SELECT 1 FROM public.price_request),'Customer cannot read internal approvals';
- ASSERT (SELECT count(*)=1 FROM public.customer_report),'Customer sees own report';
+ ASSERT NOT EXISTS(SELECT 1 FROM public.price_rule),'Customer cannot read price rules';
+ ASSERT NOT EXISTS(SELECT 1 FROM public.product) AND NOT EXISTS(SELECT 1 FROM public.promotion),'Customer cannot read raw catalog or promotions';
+ ASSERT jsonb_array_length(public.browse_products('Test sardines'))=4,'Customer can browse public catalog';
+ ASSERT (SELECT count(*)=2 FROM public.customer_report),'Customer sees own reports';
+END $$;
+RESET ROLE;
+UPDATE public.user_account SET role='Owner' WHERE user_id=current_setting('mis.test.customer')::uuid;
+SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+ ASSERT (SELECT count(*)=2 FROM public.customer_report),'Owner retains access to their earlier Customer reports';
 END $$;
 RESET ROLE;
 SET LOCAL ROLE anon;
