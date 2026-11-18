@@ -1,30 +1,38 @@
+import { safeNext } from "@/lib/mis/paths";
 import { createClient } from "@/lib/supabase/server";
-import { type EmailOtpType } from "@supabase/supabase-js";
-import { redirect } from "next/navigation";
-import { type NextRequest } from "next/server";
-
+import { EmailOtpType } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const token_hash = searchParams.get("token_hash");
-  const type = searchParams.get("type") as EmailOtpType | null;
-  const next = searchParams.get("next") ?? "/";
-
+  const url = new URL(request.url);
+  const client = await createClient();
+  let error;
+  const token_hash = url.searchParams.get("token_hash");
+  const type = url.searchParams.get("type") as EmailOtpType | null;
+  const code = url.searchParams.get("code");
   if (token_hash && type) {
-    const supabase = await createClient();
-
-    const { error } = await supabase.auth.verifyOtp({
-      type,
-      token_hash,
-    });
-    if (!error) {
-      // redirect user to specified redirect URL or root of app
-      redirect(next);
-    } else {
-      // redirect the user to an error page with some instructions
-      redirect(`/auth/error?error=${error?.message}`);
-    }
+    ({ error } = await client.auth.verifyOtp({ token_hash, type }));
+  } else if (code) {
+    ({ error } = await client.auth.exchangeCodeForSession(code));
+  } else error = new Error("Missing confirmation code.");
+  if (error) return NextResponse.redirect(new URL("/auth/error", url.origin));
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+  if (user?.user_metadata.requested_role === "Owner") {
+    const { data: profile } = await client
+      .from("user_account")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
+    if (profile?.role === "Customer")
+      await client.rpc("mis_command", {
+        action: "complete_registration",
+        a: {
+          role: "Owner",
+          full_name: user.user_metadata.full_name || "Store Owner",
+        },
+      });
   }
-
-  // redirect the user to an error page with some instructions
-  redirect(`/auth/error?error=No token hash or type`);
+  const next = url.searchParams.get("next");
+  return NextResponse.redirect(new URL(safeNext(next), url.origin));
 }
