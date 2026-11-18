@@ -22,9 +22,53 @@ export const account = cache(
     return data as Account;
   },
 );
-export async function workspaceData(role: Account["role"]): Promise<Database> {
+export async function workspaceData(
+  role: Account["role"],
+  section: string,
+): Promise<Database> {
   const supabase = await createClient();
-  const needed = role === "Customer" ? ["customer_report"] : tables;
+  const productTables = [
+    "sme",
+    "brand",
+    "product",
+    "product_variation",
+    "product_unit",
+    "store_product",
+    "store_price",
+  ];
+  const byPage: Record<string, string[]> = {
+    overview: ["sme", "store_product", "store_price", "price_request"],
+    stores: ["sme"],
+    products: [...productTables, "product_request"],
+    catalog: [...productTables, "category", "product_request"],
+    prices: [
+      ...productTables,
+      "price_request",
+      "price_history",
+      ...(role === "Administrator" ? ["price_reference"] : []),
+    ],
+    stock: [...productTables, "stock_transaction"],
+    promotions: [...productTables, "promotion", "promotion_entry"],
+    reports: [
+      ...productTables,
+      "stock_transaction",
+      "price_history",
+      "price_request",
+      "promotion",
+      "promotion_entry",
+      "product_request",
+    ],
+    concerns: [...productTables, "customer_report"],
+    rules: ["price_rule"],
+    accounts: ["user_account"],
+    account: [],
+  };
+  const needed =
+    role === "Customer"
+      ? section === "concerns"
+        ? ["customer_report"]
+        : []
+      : (byPage[section] ?? []);
   const primary: Record<string, string> = {
     user_account: "user_id",
     sme: "sme_id",

@@ -17,24 +17,18 @@ export function Prices({ db, admin }: Props) {
     <>
       {!admin && (
         <Panel
-          title="Request a selling price"
-          description="Your approved price stays active while a change is reviewed. A first price appears publicly after approval. If rejected, submit a corrected request and link the earlier request."
+          title="Request a price"
+          description="Your current price stays in use until a change is approved. A new product appears after its first price is approved."
         >
           <ActionForm
             action="submit_price"
             fields={[
               optionField(db),
-              num(
-                "proposed_price",
-                "Proposed selling price",
-                true,
-                0.01,
-                "0.01",
-              ),
-              area("owner_reason", "Reason for the price", false),
+              num("proposed_price", "New selling price", true, 0.01, "0.01"),
+              area("owner_reason", "Why this price?", false),
               select(
                 "previous_request_id",
-                "Earlier rejected or withdrawn request",
+                "Earlier request to correct (optional)",
                 db.price_request.filter((r) =>
                   ["Rejected", "Withdrawn"].includes(String(r.status)),
                 ),
@@ -44,15 +38,23 @@ export function Prices({ db, admin }: Props) {
                 false,
               ),
             ]}
-            submit="Submit price request"
+            submit="Send price request"
           />
         </Panel>
       )}
       <Panel
         title="Price requests"
-        description="Reference prices help identify changes that need review. A high markup alone does not prove overpricing."
+        description="Check the status of each requested price."
       >
         <Table
+          compact={[
+            "store_price_id",
+            "previous_price",
+            "proposed_price",
+            "status",
+            "review_reason",
+            "decision_reason",
+          ]}
           rows={[...db.price_request].reverse()}
           columns={[
             { key: "price_request_id", label: "Request" },
@@ -63,12 +65,12 @@ export function Prices({ db, admin }: Props) {
             },
             {
               key: "previous_price",
-              label: "Previous",
+              label: "Current price",
               render: (r) => peso(r.previous_price),
             },
             {
               key: "proposed_price",
-              label: "Proposed",
+              label: "New price",
               render: (r) => peso(r.proposed_price),
             },
             {
@@ -76,17 +78,17 @@ export function Prices({ db, admin }: Props) {
               label: "Status",
               render: (r) => <Status value={r.status} />,
             },
-            { key: "review_reason", label: "Review reason" },
-            { key: "owner_reason", label: "Owner explanation" },
-            { key: "reference_count", label: "Other stores" },
+            { key: "review_reason", label: "Why it needs review" },
+            { key: "owner_reason", label: "Owner’s reason" },
+            { key: "reference_count", label: "Matching stores" },
             {
               key: "reference_median",
-              label: "Reference median",
+              label: "Middle comparison price",
               render: (r) => peso(r.reference_median),
             },
             {
               key: "allowed_price",
-              label: "Rule cutoff",
+              label: "Automatic approval limit",
               render: (r) => peso(r.allowed_price),
             },
             { key: "decision_source", label: "Decided by" },
@@ -101,8 +103,8 @@ export function Prices({ db, admin }: Props) {
       </Panel>
       {admin ? (
         <Panel
-          title="Review a price request"
-          description="Check the exact package, retained references, purchase costs, price history, and Owner explanation. State a reason for either decision. Above Reference requests need an Owner explanation before approval."
+          title="Approve or reject a price"
+          description="Check the product, pack size, comparison details, and Owner’s reason before deciding."
         >
           <ActionForm
             action="review_price"
@@ -119,9 +121,9 @@ export function Prices({ db, admin }: Props) {
             ]}
           />
         </Panel>
-      ) : (
+      ) : pending.length > 0 ? (
         <div className="two-columns">
-          <Panel title="Add an explanation">
+          <Panel collapsible title="Explain a pending price">
             <ActionForm
               action="price_explanation"
               fields={[
@@ -133,11 +135,11 @@ export function Prices({ db, admin }: Props) {
                   (r) =>
                     `#${r.price_request_id} · ${label(db, r.store_price_id)}`,
                 ),
-                area("owner_reason", "Explanation"),
+                area("owner_reason", "Your reason"),
               ]}
             />
           </Panel>
-          <Panel title="Withdraw a pending request">
+          <Panel collapsible title="Cancel a pending request">
             <ActionForm
               action="withdraw_price"
               fields={[
@@ -149,17 +151,18 @@ export function Prices({ db, admin }: Props) {
                   (r) =>
                     `#${r.price_request_id} · ${label(db, r.store_price_id)}`,
                 ),
-                area("decision_reason", "Withdrawal reason"),
+                area("decision_reason", "Reason for cancelling"),
               ]}
-              submit="Withdraw request"
+              submit="Cancel request"
             />
           </Panel>
         </div>
-      )}
+      ) : null}
       {admin && (
         <Panel
-          title="Retained reference prices"
-          description="These are the exact price-history records used when the request was checked."
+          collapsible
+          title="Prices used for comparison"
+          description="These prices were saved when each request was checked."
         >
           <Table
             rows={db.price_reference}
@@ -167,20 +170,20 @@ export function Prices({ db, admin }: Props) {
               { key: "price_request_id", label: "Request" },
               {
                 key: "reference_sme_id",
-                label: "Reference store",
+                label: "Other store",
                 render: (r) =>
                   String(find(db, "sme", r.reference_sme_id).store_name),
               },
-              { key: "price_history_id", label: "History record" },
+              { key: "price_history_id", label: "Price record" },
               {
                 key: "source_price",
-                label: "Reference price",
+                label: "Compared price",
                 render: (r) =>
                   peso(find(db, "price_history", r.price_history_id).new_price),
               },
               {
                 key: "source_date",
-                label: "Effective date",
+                label: "Date approved",
                 render: (r) =>
                   date(
                     find(db, "price_history", r.price_history_id).effective_at,
@@ -190,11 +193,11 @@ export function Prices({ db, admin }: Props) {
           />
         </Panel>
       )}
-      <Panel title="Price history">
+      <Panel collapsible title="Past prices">
         <Table
           rows={[...db.price_history].reverse()}
           columns={[
-            { key: "price_history_id", label: "History ID" },
+            { key: "price_history_id", label: "Price record" },
             {
               key: "store_price_id",
               label: "Product",
@@ -213,7 +216,7 @@ export function Prices({ db, admin }: Props) {
             { key: "price_request_id", label: "Request" },
             {
               key: "effective_at",
-              label: "Effective",
+              label: "Date approved",
               render: (r) => date(r.effective_at),
             },
           ]}
@@ -226,30 +229,31 @@ export function Rules({ db }: Props) {
   return (
     <>
       <Panel
-        title="Price approval rule"
-        description="The Administrator sets the allowance above the reference median, the minimum number of other stores, and how recent their prices must be. No preset is activated. Without enough reliable references, requests wait for manual review."
+        title="Automatic price approval"
+        description="Set when a matching price can be approved automatically. Other prices still need your review."
       >
         <ActionForm
           action="rule"
           fields={[
             num(
               "allowance_percent",
-              "Allowance above median (%)",
+              "Allowed increase above the middle price (%)",
               true,
               0,
               "0.01",
             ),
-            num("minimum_stores", "Minimum other stores", true, 1),
-            num("maximum_age_days", "Maximum price age in days", true, 1),
+            num("minimum_stores", "Matching stores needed", true, 1),
+            num("maximum_age_days", "Use prices from the last (days)", true, 1),
           ]}
-          submit="Activate new rule"
+          submit="Save price settings"
         />
         <p className="muted-text">
-          Cutoff = reference median × (1 + allowance ÷ 100), rounded down to the
-          cent. This is a review rule, not a legal fair-price limit.
+          The system uses the middle price from matching stores and adds your
+          allowed percentage. This decides which prices need review; it does not
+          prove a price is fair.
         </p>
       </Panel>
-      <Panel title="Rule history">
+      <Panel collapsible title="Past settings">
         <Table
           rows={[...db.price_rule].reverse()}
           columns={[
@@ -259,7 +263,7 @@ export function Rules({ db }: Props) {
             { key: "maximum_age_days", label: "Max age (days)" },
             {
               key: "effective_from",
-              label: "Effective",
+              label: "Date approved",
               render: (r) => date(r.effective_from),
             },
             {

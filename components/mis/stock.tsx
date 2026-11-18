@@ -1,4 +1,5 @@
 "use client";
+import { simpleText } from "@/lib/mis/words";
 import { useState } from "react";
 import { ActionForm } from "./form";
 import { Panel, Table, Status } from "./table";
@@ -13,7 +14,7 @@ export function Stock({ db, admin }: Props) {
   );
   const unit = select(
     "unit_id",
-    "Selling / receipt unit",
+    "Sold or received as",
     units,
     "unit_id",
     (u) => `${u.unit_name} · ${u.stock_units} stock units`,
@@ -22,7 +23,7 @@ export function Stock({ db, admin }: Props) {
     type === "Opening" || type === "Restock"
       ? [
           unit,
-          num("entered_quantity", "Number of packages / units", true, 1),
+          num("entered_quantity", "Quantity", true, 1),
           num("total_purchase_cost", "Total purchase cost", false, 0, "0.01"),
         ]
       : type === "Sale"
@@ -30,13 +31,7 @@ export function Stock({ db, admin }: Props) {
             unit,
             num("entered_quantity", "Number sold", true, 1),
             {
-              ...num(
-                "total_sale_amount",
-                "Total actually charged",
-                false,
-                0.01,
-                "0.01",
-              ),
+              ...num("total_sale_amount", "Total charged", false, 0.01, "0.01"),
               help: "Leave blank to use the current approved price or active promotion. A different amount needs a reason.",
             },
             area("reason", "Reason for a different charge", false),
@@ -45,7 +40,7 @@ export function Stock({ db, admin }: Props) {
           ? [
               select(
                 "correction_of_id",
-                "Earlier movement to reverse",
+                "Entry to undo",
                 db.stock_transaction.filter(
                   (t) =>
                     String(t.store_product_id) === product &&
@@ -67,23 +62,23 @@ export function Stock({ db, admin }: Props) {
                 {
                   ...num(
                     "quantity_change",
-                    "Signed change in stock units",
+                    "Stock change (+ to add, − to remove)",
                     true,
                     -100000000,
                   ),
                   value: 0,
-                  help: "Use a negative number to remove stock. Zero is allowed for a cost-only correction.",
+                  help: "Use 0 if you are only correcting the purchase cost.",
                 },
                 num(
                   "unit_purchase_cost",
-                  "Corrected cost per stock unit",
+                  "Correct purchase cost per piece or pair",
                   false,
                   0,
                   "0.000001",
                 ),
                 select(
                   "correction_of_id",
-                  "Related earlier movement",
+                  "Related entry (optional)",
                   db.stock_transaction.filter(
                     (t) => String(t.store_product_id) === product,
                   ),
@@ -94,14 +89,14 @@ export function Stock({ db, admin }: Props) {
                 area("reason", "Reason"),
               ]
             : [
-                num("quantity_change", "Stock units removed", true, 1),
+                num("quantity_change", "Quantity removed", true, 1),
                 area("reason", "Reason"),
               ];
   return (
     <>
       <Panel
-        title="Stock balances"
-        description="Packages convert to the variation’s stock unit. Keep physical counts up to date; the system can only track recorded movements."
+        title="Current stock"
+        description="Check these counts against the stock in your store."
       >
         <Table
           rows={db.store_product}
@@ -113,14 +108,14 @@ export function Stock({ db, admin }: Props) {
             },
             {
               key: "stock_quantity",
-              label: "Stock on hand",
+              label: "In stock",
               render: (r) =>
                 `${r.stock_quantity} ${find(db, "product_variation", r.variation_id).stock_unit}`,
             },
             { key: "low_stock_level", label: "Warning level" },
             {
               key: "latest_unit_cost",
-              label: "Latest estimated cost / stock unit",
+              label: "Latest purchase cost per piece or pair",
               render: (r) => peso(r.latest_unit_cost),
             },
             {
@@ -142,8 +137,8 @@ export function Stock({ db, admin }: Props) {
       {!admin && (
         <>
           <Panel
-            title="Record a stock movement"
-            description="Sales are stock records. This screen does not take orders or payments."
+            title="Update stock"
+            description="Choose a product and what happened to its stock."
           >
             <div className="fields stock-picker">
               <label>
@@ -178,7 +173,9 @@ export function Stock({ db, admin }: Props) {
                     "Correction",
                     "Reversal",
                   ].map((t) => (
-                    <option key={t}>{t}</option>
+                    <option key={t} value={t}>
+                      {simpleText(t)}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -189,28 +186,35 @@ export function Stock({ db, admin }: Props) {
                 action="stock"
                 hidden={{ store_product_id: product, transaction_type: type }}
                 fields={fields}
-                submit="Record movement"
+                submit="Save stock entry"
               />
             ) : (
               <p className="muted-text">Choose a store product to begin.</p>
             )}
           </Panel>
-          <Panel title="Low-stock warning level">
+          <Panel collapsible title="Set a low-stock warning">
             <ActionForm
               action="low_stock"
               fields={[
                 stockField(db),
-                num("low_stock_level", "Warning level in stock units"),
+                num("low_stock_level", "Warn me when stock reaches"),
               ]}
             />
           </Panel>
         </>
       )}
       <Panel
-        title="Stock movement history"
-        description="Corrections and reversals create new records. Earlier movements and their package conversions stay unchanged."
+        title="Stock history"
+        description="All stock changes are kept here, including adjustments and undone entries."
       >
         <Table
+          compact={[
+            "recorded_at",
+            "store_product_id",
+            "transaction_type",
+            "quantity_change",
+            "reason",
+          ]}
           rows={[...db.stock_transaction].reverse()}
           columns={[
             { key: "stock_transaction_id", label: "ID" },
@@ -224,9 +228,9 @@ export function Stock({ db, admin }: Props) {
               label: "Product",
               render: (r) => label(db, r.store_product_id, "stock"),
             },
-            { key: "transaction_type", label: "Movement" },
-            { key: "quantity_change", label: "Stock unit change" },
-            { key: "units_per_package", label: "Units / package" },
+            { key: "transaction_type", label: "Action" },
+            { key: "quantity_change", label: "Quantity change" },
+            { key: "units_per_package", label: "Quantity in pack" },
             {
               key: "total_purchase_cost",
               label: "Purchase cost",
@@ -239,12 +243,12 @@ export function Stock({ db, admin }: Props) {
             },
             {
               key: "unit_purchase_cost",
-              label: "Saved cost / unit",
+              label: "Purchase cost used",
               render: (r) => peso(r.unit_purchase_cost),
             },
             { key: "price_history_id", label: "Price history" },
             { key: "promotion_entry_id", label: "Promotion entry" },
-            { key: "correction_of_id", label: "Earlier movement" },
+            { key: "correction_of_id", label: "Related entry" },
             { key: "reason", label: "Reason" },
           ]}
         />

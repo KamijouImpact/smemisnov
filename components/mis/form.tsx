@@ -2,6 +2,7 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { simpleMessage } from "@/lib/mis/words";
 import { Field } from "@/lib/mis/types";
 export function ActionForm({
   action,
@@ -10,6 +11,7 @@ export function ActionForm({
   title,
   submit = "Save",
   children,
+  extraFields = [],
 }: {
   action: string;
   fields?: Field[];
@@ -17,6 +19,7 @@ export function ActionForm({
   title?: string;
   submit?: string;
   children?: React.ReactNode;
+  extraFields?: string[];
 }) {
   const id = useId();
   const router = useRouter();
@@ -41,7 +44,7 @@ export function ActionForm({
       });
       if (failure) throw failure;
       setError(false);
-      setMessage(data?.message || "Saved.");
+      setMessage(simpleMessage(data?.message || "Saved."));
       form.reset();
       router.refresh();
     } catch (e) {
@@ -62,61 +65,82 @@ export function ActionForm({
       setBusy(false);
     }
   }
+  const available = fields.filter(
+    (f) => !f.options || f.options.length > 0 || f.required !== false,
+  );
+  const renderField = (f: Field) => (
+    <label
+      key={f.name}
+      htmlFor={`${id}-${f.name}`}
+      className={f.type === "textarea" ? "wide" : ""}
+    >
+      <span>
+        {f.label}
+        {f.required !== false && <small aria-hidden="true"> *</small>}
+      </span>
+      {f.options ? (
+        <select
+          id={`${id}-${f.name}`}
+          name={f.name}
+          required={f.required !== false}
+          defaultValue={
+            f.value ??
+            (f.required !== false && f.options.length === 1
+              ? f.options[0].value
+              : "")
+          }
+        >
+          <option value="">Choose…</option>
+          {f.options.map((o, i) => (
+            <option key={`${o.value}-${i}`} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      ) : f.type === "textarea" ? (
+        <textarea
+          id={`${id}-${f.name}`}
+          name={f.name}
+          required={f.required !== false}
+          maxLength={4000}
+          defaultValue={f.value}
+          rows={3}
+        />
+      ) : (
+        <input
+          id={`${id}-${f.name}`}
+          name={f.name}
+          type={f.type || "text"}
+          required={f.required !== false}
+          defaultValue={f.value}
+          min={f.min}
+          max={f.max}
+          step={f.step}
+          maxLength={f.type === "text" || !f.type ? 160 : undefined}
+        />
+      )}
+      {f.help && <small>{f.help}</small>}
+    </label>
+  );
   return (
     <form onSubmit={save} className="action-form">
       {title && <h3>{title}</h3>}
       {children}
       <div className="fields">
-        {fields.map((f) => (
-          <label
-            key={f.name}
-            htmlFor={`${id}-${f.name}`}
-            className={f.type === "textarea" ? "wide" : ""}
-          >
-            <span>
-              {f.label}
-              {f.required !== false && <small aria-hidden="true"> *</small>}
-            </span>
-            {f.options ? (
-              <select
-                id={`${id}-${f.name}`}
-                name={f.name}
-                required={f.required !== false}
-                defaultValue={f.value ?? ""}
-              >
-                <option value="">Choose…</option>
-                {f.options.map((o, i) => (
-                  <option key={`${o.value}-${i}`} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            ) : f.type === "textarea" ? (
-              <textarea
-                id={`${id}-${f.name}`}
-                name={f.name}
-                required={f.required !== false}
-                maxLength={4000}
-                defaultValue={f.value}
-                rows={3}
-              />
-            ) : (
-              <input
-                id={`${id}-${f.name}`}
-                name={f.name}
-                type={f.type || "text"}
-                required={f.required !== false}
-                defaultValue={f.value}
-                min={f.min}
-                max={f.max}
-                step={f.step}
-                maxLength={f.type === "text" || !f.type ? 160 : undefined}
-              />
-            )}
-            {f.help && <small>{f.help}</small>}
-          </label>
-        ))}
+        {available
+          .filter((f) => !extraFields.includes(f.name))
+          .map(renderField)}
       </div>
+      {available.some((f) => extraFields.includes(f.name)) && (
+        <details className="extra-fields">
+          <summary>More details (optional)</summary>
+          <div className="fields">
+            {available
+              .filter((f) => extraFields.includes(f.name))
+              .map(renderField)}
+          </div>
+        </details>
+      )}
       {message && (
         <p
           role={error ? "alert" : "status"}

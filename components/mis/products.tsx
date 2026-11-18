@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ActionForm } from "./form";
 import { Panel, Table, Status } from "./table";
 import {
@@ -15,9 +16,16 @@ import { date, find, label, peso } from "@/lib/mis/types";
 export function Products({ db, admin }: Props) {
   return (
     <>
+      {!admin && !db.sme.some((s) => s.status === "Active") && (
+        <p className="notice">
+          Add a store and wait for approval before adding products.{" "}
+          <Link href="/workspace/stores">Go to My stores →</Link>
+        </p>
+      )}
       <Panel
+        collapsible={admin}
         title="Store products"
-        description="Each variation has one stock balance. Selling units such as a piece or a box use that same balance."
+        description="Pieces and boxes of the same product share one stock count."
       >
         <Table
           rows={db.store_price}
@@ -29,7 +37,7 @@ export function Products({ db, admin }: Props) {
             },
             {
               key: "regular_price",
-              label: "Approved regular price",
+              label: "Approved price",
               render: (r) => peso(r.regular_price),
             },
             {
@@ -40,9 +48,9 @@ export function Products({ db, admin }: Props) {
           ]}
         />
       </Panel>
-      {!admin && (
+      {!admin && db.sme.some((s) => s.status === "Active") && (
         <div className="two-columns">
-          <Panel title="Add an approved product">
+          <Panel title="Add a product">
             <ActionForm
               action="list_unit"
               fields={[storeField(db), unitField(db)]}
@@ -50,8 +58,9 @@ export function Products({ db, admin }: Props) {
             />
           </Panel>
           <Panel
-            title="Other / Not Listed"
-            description="Describe the brand, model, size, variant, and package quantity. The Administrator checks for an existing match or creates approved details."
+            collapsible
+            title="Product not listed?"
+            description="Tell us the brand, size, and pack quantity. The Administrator will check the details."
           >
             <ActionForm
               action="product_request"
@@ -59,13 +68,13 @@ export function Products({ db, admin }: Props) {
                 storeField(db),
                 area("requested_details", "Product details"),
               ]}
-              submit="Request product details"
+              submit="Send product request"
             />
           </Panel>
         </div>
       )}
-      {!admin && (
-        <Panel title="Change a listing’s status">
+      {!admin && db.sme.some((s) => s.status === "Active") && (
+        <Panel collapsible title="Hide or show a product">
           <ActionForm
             action="listing_status"
             fields={[
@@ -81,7 +90,13 @@ export function Products({ db, admin }: Props) {
           />
         </Panel>
       )}
-      <Panel title="Product requests">
+      <Panel
+        collapsible
+        open={db.product_request.some(
+          (r) => r.status === "Pending Product Review",
+        )}
+        title="Product requests"
+      >
         <Table
           rows={db.product_request}
           columns={[
@@ -91,7 +106,7 @@ export function Products({ db, admin }: Props) {
               label: "Store",
               render: (r) => String(find(db, "sme", r.sme_id).store_name),
             },
-            { key: "requested_details", label: "Requested details" },
+            { key: "requested_details", label: "Product details" },
             {
               key: "submitted_at",
               label: "Submitted",
@@ -109,7 +124,7 @@ export function Products({ db, admin }: Props) {
       {admin && (
         <Panel
           title="Review a product request"
-          description="Create any missing shared details first, then select the approved unit. A rejected request can be corrected through a new product request."
+          description="Choose the matching product and pack size. If it is missing, add it below first."
         >
           <ActionForm
             action="review_product"
@@ -136,13 +151,11 @@ export function Catalog({ db }: Props) {
   return (
     <>
       <p className="notice">
-        Create details in this order: Category and Brand → Product → Variation →
-        Selling Unit. Product details and package quantities remain fixed so
-        existing stock and price records keep their meaning. Archive mistaken
-        records and add corrected details.
+        Open the section you need. Start with a category and brand, then add a
+        product, its options, and pack sizes.
       </p>
       <div className="two-columns">
-        <Panel title="1. Categories">
+        <Panel collapsible open={db.category.length === 0} title="Categories">
           <ActionForm
             action="category"
             fields={[
@@ -165,7 +178,7 @@ export function Catalog({ db }: Props) {
             ]}
           />
         </Panel>
-        <Panel title="2. Brands">
+        <Panel collapsible title="Brands">
           <ActionForm
             action="brand"
             fields={[text("brand_name", "Brand name")]}
@@ -180,7 +193,7 @@ export function Catalog({ db }: Props) {
           />
         </Panel>
       </div>
-      <Panel title="3. Products">
+      <Panel collapsible title="Product names">
         <ActionForm
           action="product"
           fields={[
@@ -220,8 +233,9 @@ export function Catalog({ db }: Props) {
         />
       </Panel>
       <Panel
-        title="4. Product variations"
-        description="Use the relevant fields only. Net quantity is stored in grams or millilitres. Allow automatic price references only when these details identify an exact comparable product."
+        collapsible
+        title="Product options"
+        description="Add details such as size, color, or flavor. Fill in only what applies."
       >
         <ActionForm
           action="variation"
@@ -234,22 +248,36 @@ export function Catalog({ db }: Props) {
               (r) =>
                 `${find(db, "brand", r.brand_id).brand_name || "Unbranded"} · ${r.product_name} · ${r.model_or_style || ""}`,
             ),
-            text("variation_name", "Variation name"),
+            text("variation_name", "Option name (for example, Red / Large)"),
             text("size", "Size", false),
             text("color", "Color", false),
             text("flavor", "Flavor", false),
             text("capacity", "Capacity", false),
-            num("net_quantity", "Net quantity", false, 0.001, "0.001"),
-            choice("net_unit", "Net unit", ["g", "kg", "mL", "L"], false),
-            choice("condition", "Condition", ["New", "Used"]),
-            text("stock_unit", "Stock unit (piece, pair, sachet, etc.)"),
-            area("other_details", "Other product details", false),
+            num("net_quantity", "Weight or volume", false, 0.001, "0.001"),
+            choice(
+              "net_unit",
+              "Weight / volume unit",
+              ["g", "kg", "mL", "L"],
+              false,
+            ),
+            {
+              ...choice("condition", "Condition", ["New", "Used"]),
+              value: "New",
+            },
+            text("stock_unit", "Count stock in (piece, pair, etc.)"),
+            area("other_details", "Other details", false),
             {
               name: "allow_price_reference",
-              label: "Allow exact price references?",
+              label: "Compare matching prices automatically?",
               options: [
-                { value: "false", label: "No — manual review" },
-                { value: "true", label: "Yes — exact match is reliable" },
+                {
+                  value: "false",
+                  label: "No — Administrator checks each price",
+                },
+                {
+                  value: "true",
+                  label: "Yes — the same product can be matched exactly",
+                },
               ],
               value: "false",
             },
@@ -265,19 +293,19 @@ export function Catalog({ db }: Props) {
               render: (r) =>
                 String(find(db, "product", r.product_id).product_name),
             },
-            { key: "variation_name", label: "Variation" },
+            { key: "variation_name", label: "Product option" },
             { key: "size", label: "Size" },
             { key: "color", label: "Color" },
             {
               key: "net_quantity",
-              label: "Net quantity",
+              label: "Weight or volume",
               render: (r) =>
                 r.net_quantity ? `${r.net_quantity} ${r.net_unit}` : "—",
             },
             { key: "stock_unit", label: "Stock unit" },
             {
               key: "allow_price_reference",
-              label: "Reference allowed",
+              label: "Automatic price check",
               render: (r) => (r.allow_price_reference ? "Yes" : "No"),
             },
             { key: "status", label: "Status" },
@@ -285,23 +313,29 @@ export function Catalog({ db }: Props) {
         />
       </Panel>
       <Panel
-        title="5. Selling units"
-        description="For example: piece = 1 stock unit, box of 24 = 24 stock units. A box shares the same variation stock as its pieces."
+        collapsible
+        title="Pack sizes"
+        description="For example: piece = 1, box of 24 = 24. Both use the same stock count."
       >
         <ActionForm
           action="unit"
           fields={[
             select(
               "variation_id",
-              "Variation",
+              "Product option",
               db.product_variation.filter((r) => r.status === "Active"),
               "variation_id",
               (r) =>
                 `${find(db, "product", r.product_id).product_name} · ${r.variation_name} · ${r.size || ""} ${r.color || ""}`,
             ),
-            text("unit_name", "Selling unit name"),
-            num("stock_units", "Stock units in this package", true, 1),
-            text("gtin", "Barcode / GTIN", false),
+            text("unit_name", "Sold as (piece, box, etc.)"),
+            num(
+              "stock_units",
+              "Number of pieces or pairs in this pack",
+              true,
+              1,
+            ),
+            text("gtin", "Barcode (optional)", false),
           ]}
         />
         <Table
@@ -313,27 +347,29 @@ export function Catalog({ db }: Props) {
               label: "Product",
               render: (r) => label(db, r.unit_id, "unit"),
             },
-            { key: "stock_units", label: "Stock units" },
-            { key: "gtin", label: "GTIN" },
+            { key: "stock_units", label: "Quantity in pack" },
+            { key: "gtin", label: "Barcode" },
             { key: "status", label: "Status" },
           ]}
         />
       </Panel>
-      <Panel title="Archive or restore shared details">
+      <Panel collapsible title="Hide or restore product details">
         <ActionForm
           action="catalog_status"
           fields={[
             {
-              ...choice("table", "Record type", [
-                "category",
-                "brand",
-                "product",
-                "product_variation",
-                "product_unit",
-              ]),
-              help: "Use the ID shown in the corresponding table above.",
+              name: "table",
+              label: "Type of detail",
+              options: [
+                { value: "category", label: "Category" },
+                { value: "brand", label: "Brand" },
+                { value: "product", label: "Product name" },
+                { value: "product_variation", label: "Product option" },
+                { value: "product_unit", label: "Pack size" },
+              ],
+              help: "Choose the record type, then use its ID from the table above.",
             },
-            num("id", "Record ID", true, 1),
+            num("id", "Record number", true, 1),
             choice("status", "Status", ["Active", "Archived"]),
           ]}
         />

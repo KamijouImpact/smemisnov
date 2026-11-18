@@ -36,9 +36,11 @@ export default async function Section({
     ["catalog", "rules", "accounts"].includes(section)
   )
     notFound();
+  if (user.role === "Administrator" && section === "products")
+    redirect("/workspace/catalog");
   const supabase = await createClient();
   const [db, { data: publicRows, error }] = await Promise.all([
-    workspaceData(user.role),
+    workspaceData(user.role, section),
     section === "concerns"
       ? supabase.rpc("browse_products", { search: "" })
       : Promise.resolve({ data: [], error: null }),

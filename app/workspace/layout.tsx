@@ -26,10 +26,10 @@ export default async function WorkspaceLayout({
         <aside>
           <span className="eyebrow">
             {user.role === "Administrator"
-              ? "SYSTEM WORKSPACE"
+              ? "ADMINISTRATOR"
               : user.role === "Owner"
-                ? "STORE WORKSPACE"
-                : "CUSTOMER WORKSPACE"}
+                ? "MY STORE"
+                : "MY ACCOUNT"}
           </span>
           <WorkspaceNav role={user.role} />
           <div className="sidebar-account">

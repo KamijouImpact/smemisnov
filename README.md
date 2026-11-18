@@ -57,6 +57,12 @@ There are no shared demo passwords or public test accounts in this repository.
 5. Administrator: review the first price. The approved listing then appears publicly.
 6. Administrator: activate a price rule only after agreeing on its settings. Without a rule or enough reliable references, requests remain for manual review.
 
+## Simple screens
+
+The main menu shows everyday tasks: Home, Products, Prices, Stock, Reports, and Price reports. Administrators also see Stores. Less-used options are under More. Product setup sections, older records, and extra transaction details can be expanded when needed. The database records and approval rules are unchanged.
+
+The interface uses plain CSS; the unused Tailwind setup and old starter pages have been removed. Each page loads the records it uses.
+
 ## Project structure
 
 | Folder                 | Purpose                                                                |

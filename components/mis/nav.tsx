@@ -1,46 +1,34 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-export function WorkspaceNav({ role }: { role: string }) {
+import { navigation } from "@/lib/mis/navigation";
+import type { Account } from "@/lib/mis/types";
+export function WorkspaceNav({ role }: { role: Account["role"] }) {
   const path = usePathname();
-  const items =
-    role === "Customer"
-      ? [
-          ["concerns", "My reports", "◎"],
-          ["account", "My account", "◉"],
-        ]
-      : [
-          ["overview", "Overview", "▦"],
-          ["stores", "Stores", "⌂"],
-          ["products", "Store products", "▧"],
-          ...(role === "Administrator"
-            ? [["catalog", "Shared products", "◇"]]
-            : []),
-          ["prices", "Price requests", "₱"],
-          ["stock", "Stock records", "▤"],
-          ["promotions", "Promotions", "✧"],
-          ["reports", "Management reports", "◷"],
-          ["concerns", "Customer reports", "◎"],
-          ...(role === "Administrator"
-            ? [
-                ["rules", "Price rules", "≋"],
-                ["accounts", "Accounts", "◉"],
-              ]
-            : []),
-          ["account", "My account", "◉"],
-        ];
+  const { main, more } = navigation(role);
+  const links = (items: typeof main) =>
+    items.map(({ path: key, label, icon }) => (
+      <Link
+        className={path === `/workspace/${key}` ? "active" : ""}
+        aria-current={path === `/workspace/${key}` ? "page" : undefined}
+        key={key}
+        href={`/workspace/${key}`}
+      >
+        <span aria-hidden="true">{icon}</span>
+        {label}
+      </Link>
+    ));
   return (
-    <nav aria-label="Workspace navigation">
-      {items.map(([key, name, icon]) => (
-        <Link
-          className={path === `/workspace/${key}` ? "active" : ""}
-          key={key}
-          href={`/workspace/${key}`}
-        >
-          <span>{icon}</span>
-          {name}
-        </Link>
-      ))}
+    <nav aria-label="Store menu">
+      {links(main)}
+      <details
+        className="more-menu"
+        key={path}
+        open={more.some((i) => path === `/workspace/${i.path}`)}
+      >
+        <summary>More</summary>
+        <div>{links(more)}</div>
+      </details>
     </nav>
   );
 }

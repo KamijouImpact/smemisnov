@@ -26,53 +26,17 @@ export default async function Browse({
     <>
       <Header user={user} />
       <main className="public-main">
-        <section className="hero">
-          <div>
-            <span className="eyebrow">
-              <span className="dot" /> LOCAL STORES, CLEARER PRICES
-            </span>
-            <h1>
-              Find what you need.
-              <br />
-              <em>Know the listed price.</em>
-            </h1>
-            <p>
-              Explore products from participating small businesses.
-              <br />
-              See approved prices and reported availability in one place.
-            </p>
-            <div className="hero-chips">
-              <span>✓ Approved prices</span>
-              <span>✓ Exact package details</span>
-              <span>✓ No account needed to browse</span>
-            </div>
-          </div>
-          <div className="hero-card">
-            <div className="mini-icon">▦</div>
-            <small>FOR SMALL BUSINESSES</small>
-            <h2>
-              A clearer view
-              <br />
-              of your store.
-            </h2>
-            <p>
-              Manage prices. Track stock.
-              <br />
-              Make informed decisions.
-            </p>
-            <Link href={user ? "/workspace" : "/auth/login?mode=register"}>
-              Open your workspace <span>↗</span>
-            </Link>
-          </div>
+        <section className="browse-heading">
+          <h1>Browse products</h1>
+          <p>
+            Find a product, check its price, and see if it is in stock. No login
+            needed.
+          </p>
         </section>
         <section className="catalog-area">
-          <div className="section-title">
-            <div>
-              <span className="eyebrow">EXPLORE THE CATALOG</span>
-              <h2>Products near your everyday needs</h2>
-            </div>
-            <span className="count">{rows.length} listings</span>
-          </div>
+          <p className="count search-count">
+            {rows.length} {rows.length === 1 ? "product" : "products"}
+          </p>
           <form className="searchbar">
             <label className="search-input">
               <span aria-hidden="true">⌕</span>
@@ -120,21 +84,8 @@ export default async function Browse({
                   className="product-card"
                   key={String(r.store_price_id)}
                 >
-                  <div
-                    className={`product-art art-${String(r.product_type).split(" ")[0].toLowerCase()}`}
-                  >
-                    <span>
-                      {r.product_type === "Clothing"
-                        ? "♧"
-                        : r.product_type === "Gadget"
-                          ? "▣"
-                          : r.product_type === "Packaged Product"
-                            ? "▥"
-                            : "◇"}
-                    </span>
-                    <small>{r.category_name}</small>
-                  </div>
                   <div className="product-info">
+                    <span className="product-category">{r.category_name}</span>
                     <div className="product-top">
                       <span className="muted-text">
                         {r.brand_name || "Unbranded"}
@@ -189,7 +140,7 @@ export default async function Browse({
                       <Link
                         href={`/workspace/concerns?item=${r.store_price_id}`}
                       >
-                        Report a price →
+                        Report a price problem →
                       </Link>
                     </div>
                   </div>
@@ -200,9 +151,7 @@ export default async function Browse({
             <div className="empty large">
               <span>▦</span>
               <h3>
-                {params.q
-                  ? "No matching products"
-                  : "The catalog is getting ready"}
+                {params.q ? "No matching products" : "No products listed yet"}
               </h3>
               <p>
                 {params.q
@@ -213,7 +162,7 @@ export default async function Browse({
                 className="button outline"
                 href={params.q ? "/" : "/auth/login?mode=register"}
               >
-                {params.q ? "Clear search" : "Register your store"}
+                {params.q ? "Clear search" : "Add your store"}
               </Link>
             </div>
           )}
@@ -225,7 +174,7 @@ export default async function Browse({
       </main>
       <footer className="footer">
         <span>SME MIS</span>
-        <p>Clear prices. Better stock records. Informed decisions.</p>
+        <p>Prices and stock for small stores.</p>
         <span>Price & Stock Control</span>
       </footer>
     </>

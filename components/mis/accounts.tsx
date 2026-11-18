@@ -6,11 +6,11 @@ export function Stores({ db, admin }: Props) {
   return (
     <>
       <Panel
-        title="Participating stores"
+        title="Stores"
         description={
           admin
-            ? "Review registrations and monitor every participating store."
-            : "Register your store. The Administrator reviews it before listings and stock work can begin."
+            ? "Approve new stores or update their status."
+            : "Add your store details, then wait for approval."
         }
       >
         <Table
@@ -33,7 +33,7 @@ export function Stores({ db, admin }: Props) {
         />
       </Panel>
       {!admin ? (
-        <Panel title="Register a store">
+        <Panel title="Add a store">
           <ActionForm
             action="store"
             fields={[
@@ -44,7 +44,7 @@ export function Stores({ db, admin }: Props) {
           />
         </Panel>
       ) : (
-        <Panel title="Review a store">
+        <Panel title="Approve or pause a store">
           <ActionForm
             action="store_status"
             fields={[
@@ -67,7 +67,7 @@ export function Stores({ db, admin }: Props) {
 export function Accounts({ db }: Props) {
   return (
     <>
-      <Panel title="System accounts">
+      <Panel title="User accounts">
         <Table
           rows={db.user_account}
           columns={[
@@ -83,7 +83,7 @@ export function Accounts({ db }: Props) {
         />
       </Panel>
       <Panel
-        title="Manage account access"
+        title="Allow or pause access"
         description="Inactive accounts cannot change business records or publish active listings."
       >
         <ActionForm

@@ -24,7 +24,7 @@ export function Concerns({
     <>
       {customer && (
         <Panel
-          title="Report a price concern"
+          title="Report a price problem"
           description="Choose the exact product and package. Tell us what you saw or were charged. The Owner can respond, and the Administrator reviews the records and available evidence."
         >
           <label className="standalone-field">
@@ -52,22 +52,10 @@ export function Concerns({
               hidden={{ store_price_id: selected }}
               fields={[
                 {
-                  ...num(
-                    "listed_price",
-                    "Listed price you saw",
-                    true,
-                    0.01,
-                    "0.01",
-                  ),
+                  ...num("listed_price", "Listed price", true, 0.01, "0.01"),
                   value: Number(listing.selling_price),
                 },
-                num(
-                  "charged_price",
-                  "Price actually charged",
-                  false,
-                  0.01,
-                  "0.01",
-                ),
+                num("charged_price", "Price charged", false, 0.01, "0.01"),
                 {
                   name: "transaction_at",
                   label: "When it happened (Philippine time)",
@@ -90,8 +78,15 @@ export function Concerns({
           )}
         </Panel>
       )}
-      <Panel title={customer ? "My reports" : "Customer reports"}>
+      <Panel title={customer ? "My price reports" : "Price reports"}>
         <Table
+          compact={[
+            "store_price_id",
+            "description",
+            "status",
+            "owner_response",
+            "outcome",
+          ]}
           rows={[...db.customer_report].reverse()}
           columns={[
             { key: "customer_report_id", label: "Report" },
@@ -125,7 +120,7 @@ export function Concerns({
               label: "When",
               render: (r) => date(r.transaction_at),
             },
-            { key: "description", label: "Report details" },
+            { key: "description", label: "What happened" },
             { key: "evidence_reference", label: "Evidence reference" },
             { key: "owner_response", label: "Owner response" },
             {
@@ -133,15 +128,15 @@ export function Concerns({
               label: "Status",
               render: (r) => <Status value={r.status} />,
             },
-            { key: "outcome", label: "Outcome" },
-            { key: "outcome_details", label: "Findings" },
+            { key: "outcome", label: "Result" },
+            { key: "outcome_details", label: "Review details" },
           ]}
         />
       </Panel>
       {!customer &&
         (admin ? (
           <Panel
-            title="Review a customer report"
+            title="Review a price report"
             description="Use the report’s product, package, and transaction time to check price history, promotion records, and recorded sales. Missing evidence does not prove a violation."
           >
             <ActionForm
@@ -151,7 +146,7 @@ export function Concerns({
                 choice("status", "Report status", ["Under Review", "Closed"]),
                 choice(
                   "outcome",
-                  "Closure outcome",
+                  "Result",
                   [
                     "Confirmed Discrepancy",
                     "Package Mismatch",
@@ -160,7 +155,7 @@ export function Concerns({
                   ],
                   false,
                 ),
-                area("outcome_details", "Review findings"),
+                area("outcome_details", "What you found"),
               ]}
               submit="Save review"
             />

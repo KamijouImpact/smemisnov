@@ -51,7 +51,7 @@ export const storeField = (db: Database) =>
 export const optionField = (db: Database) =>
   select(
     "store_price_id",
-    "Product and selling unit",
+    "Product and pack size",
     db.store_price.filter((s) => s.status === "Active"),
     "store_price_id",
     (r) => label(db, r.store_price_id),
@@ -59,7 +59,7 @@ export const optionField = (db: Database) =>
 export const stockField = (db: Database) =>
   select(
     "store_product_id",
-    "Store product",
+    "Product",
     db.store_product.filter((s) => s.status === "Active"),
     "store_product_id",
     (r) => label(db, r.store_product_id, "stock"),
@@ -67,7 +67,7 @@ export const stockField = (db: Database) =>
 export const unitField = (db: Database, required = true) =>
   select(
     "unit_id",
-    "Product and selling unit",
+    "Product and pack size",
     db.product_unit.filter((s) => s.status === "Active"),
     "unit_id",
     (r) => label(db, r.unit_id, "unit"),

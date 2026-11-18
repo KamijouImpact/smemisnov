@@ -102,35 +102,18 @@ export function AuthPortal({
   }
   return (
     <div className="auth-layout">
-      <div className="auth-story">
+      <div className="auth-top">
         <Link className="brand" href="/">
-          SME MIS <span>↗</span>
+          SME MIS
         </Link>
-        <div>
-          <span className="eyebrow">YOUR STORE, IN FOCUS</span>
-          <h1>
-            Clear prices.
-            <br />
-            Organized stock.
-            <br />
-            <em>Better decisions.</em>
-          </h1>
-          <p>
-            One place for small businesses to manage their products, request
-            prices, and keep stock records.
-          </p>
-        </div>
-        <Link href="/">← Browse products without an account</Link>
+        <Link href="/">← Browse products</Link>
       </div>
       <main className="auth-panel">
         <div className="auth-box">
-          <span className="eyebrow">WELCOME TO SME MIS</span>
-          <h2>
-            {mode === "login" ? "Good to see you." : "Let’s get started."}
-          </h2>
+          <h2>{mode === "login" ? "Log in" : "Create an account"}</h2>
           <p>
             {mode === "login"
-              ? "Log in to your workspace or customer reports."
+              ? "Log in to manage your store or check your price reports."
               : "Choose how you’ll use the system."}
           </p>
           <div className="auth-tabs">

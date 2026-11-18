@@ -14,7 +14,7 @@ export function Promotions({ db, admin }: Props) {
   return (
     <>
       <Panel
-        title="Promotion events"
+        title="Promotions"
         description="The Administrator creates events. Each Owner chooses whether to join and submits a discount for approval. Regular prices are kept separately."
       >
         <Table
@@ -38,7 +38,7 @@ export function Promotions({ db, admin }: Props) {
       </Panel>
       {admin ? (
         <div className="two-columns">
-          <Panel title="Create an event">
+          <Panel title="Create a promotion">
             <ActionForm
               action="promotion"
               fields={[
@@ -58,7 +58,7 @@ export function Promotions({ db, admin }: Props) {
               submit="Create event"
             />
           </Panel>
-          <Panel title="Cancel an event">
+          <Panel title="Cancel a promotion">
             <ActionForm
               action="cancel_promotion"
               fields={[
@@ -76,7 +76,7 @@ export function Promotions({ db, admin }: Props) {
         </div>
       ) : (
         <Panel
-          title="Join an event"
+          title="Offer a discount"
           description="A discount starts only after approval and during the event dates. Withdraw a rejected or outdated entry and submit a corrected one."
         >
           <ActionForm
@@ -94,16 +94,10 @@ export function Promotions({ db, admin }: Props) {
                 (r) => String(r.promotion_name),
               ),
               optionField(db),
-              num(
-                "promotion_price",
-                "Proposed promotion price",
-                true,
-                0.01,
-                "0.01",
-              ),
+              num("promotion_price", "Discount price", true, 0.01, "0.01"),
               select(
                 "previous_entry_id",
-                "Earlier rejected or withdrawn entry",
+                "Earlier discount request to correct (optional)",
                 db.promotion_entry.filter((r) =>
                   ["Rejected", "Withdrawn"].includes(String(r.status)),
                 ),
@@ -117,7 +111,7 @@ export function Promotions({ db, admin }: Props) {
           />
         </Panel>
       )}
-      <Panel title="Promotion entries">
+      <Panel title="Discount requests">
         <Table
           rows={[...db.promotion_entry].reverse()}
           columns={[
@@ -138,7 +132,7 @@ export function Promotions({ db, admin }: Props) {
               label: "Discount price",
               render: (r) => peso(r.promotion_price),
             },
-            { key: "regular_history_id", label: "Regular price history" },
+            { key: "regular_history_id", label: "Regular price record" },
             {
               key: "status",
               label: "Status",
@@ -149,7 +143,7 @@ export function Promotions({ db, admin }: Props) {
         />
       </Panel>
       {admin ? (
-        <Panel title="Review a discount">
+        <Panel title="Approve or reject a discount">
           <ActionForm
             action="review_promotion"
             fields={[
@@ -166,7 +160,7 @@ export function Promotions({ db, admin }: Props) {
           />
         </Panel>
       ) : (
-        <Panel title="Withdraw a discount">
+        <Panel title="Cancel a discount">
           <ActionForm
             action="withdraw_promotion"
             fields={[
@@ -182,7 +176,7 @@ export function Promotions({ db, admin }: Props) {
               ),
               area("decision_reason", "Withdrawal reason"),
             ]}
-            submit="Withdraw discount"
+            submit="Cancel discount"
           />
         </Panel>
       )}

@@ -8,7 +8,7 @@ export function Reports({ db }: Props) {
   const [store, setStore] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [type, setType] = useState("Stock movements");
+  const [type, setType] = useState("Stock changes");
   const own = (sp: unknown) =>
     !store || String(find(db, "store_product", sp).sme_id) === store;
   const at = (v: unknown) => {
@@ -52,17 +52,17 @@ export function Reports({ db }: Props) {
       { key: "charged", label: "Actually charged" },
       { key: "expected", label: "Listed total" },
       { key: "difference", label: "Price difference" },
-      { key: "saved_unit_cost", label: "Saved cost / unit" },
-      { key: "estimated_profit", label: "Estimated gross profit" },
+      { key: "saved_unit_cost", label: "Purchase cost used" },
+      { key: "estimated_profit", label: "Estimated profit before expenses" },
       { key: "reason", label: "Reason" },
-      { key: "recorded", label: "Recorded" },
+      { key: "recorded", label: "Date" },
     ];
-  } else if (type === "Stock balances" || type === "Low-stock warnings") {
+  } else if (type === "Current stock" || type === "Low stock") {
     rows = db.store_product
       .filter(
         (r) =>
           own(r.store_product_id) &&
-          (type !== "Low-stock warnings" ||
+          (type !== "Low stock" ||
             Number(r.stock_quantity) <= Number(r.low_stock_level)),
       )
       .map((r) => ({
@@ -75,7 +75,7 @@ export function Reports({ db }: Props) {
     columns = [
       { key: "product", label: "Product" },
       { key: "stock", label: "Current stock" },
-      { key: "stock_unit", label: "Stock unit" },
+      { key: "stock_unit", label: "Counted in" },
       { key: "warning_level", label: "Warning level" },
       { key: "latest_cost", label: "Estimated cost / unit" },
     ];
@@ -100,7 +100,7 @@ export function Reports({ db }: Props) {
       { key: "new_price", label: "Approved price" },
       { key: "effective", label: "Effective" },
     ];
-  } else if (type === "Pending price requests") {
+  } else if (type === "Prices waiting for review") {
     rows = db.price_request
       .filter(
         (r) =>
@@ -124,7 +124,7 @@ export function Reports({ db }: Props) {
       { key: "owner_reason", label: "Owner explanation" },
       { key: "submitted", label: "Submitted" },
     ];
-  } else if (type === "Pending product requests") {
+  } else if (type === "Products waiting for review") {
     rows = db.product_request
       .filter(
         (r) =>
@@ -144,7 +144,7 @@ export function Reports({ db }: Props) {
       { key: "details", label: "Requested details" },
       { key: "submitted", label: "Submitted" },
     ];
-  } else if (type === "Pending promotion entries") {
+  } else if (type === "Discounts waiting for review") {
     rows = db.promotion_entry
       .filter(
         (r) =>
@@ -170,7 +170,7 @@ export function Reports({ db }: Props) {
     rows = movements
       .filter(
         (r) =>
-          type !== "Loss records" ||
+          type !== "Loss and damage" ||
           ["Loss", "Spoilage", "Damage"].includes(String(r.transaction_type)) ||
           (r.transaction_type === "Reversal" &&
             ["Loss", "Spoilage", "Damage"].includes(String(r.original_type))),
@@ -198,23 +198,23 @@ export function Reports({ db }: Props) {
       { key: "id", label: "ID" },
       { key: "product", label: "Product" },
       { key: "type", label: "Type" },
-      { key: "quantity_change", label: "Stock change" },
+      { key: "quantity_change", label: "Quantity change" },
       { key: "stock_unit", label: "Unit" },
       { key: "purchase_cost", label: "Purchase cost" },
       { key: "charged", label: "Charged" },
-      { key: "saved_unit_cost", label: "Saved cost / unit" },
+      { key: "saved_unit_cost", label: "Purchase cost used" },
       { key: "price_history_id", label: "Price history" },
       { key: "promotion_entry_id", label: "Promotion entry" },
       { key: "correction_of_id", label: "Earlier movement" },
       { key: "reason", label: "Reason" },
-      { key: "recorded", label: "Recorded" },
+      { key: "recorded", label: "Date" },
     ];
   }
   const invalid = Boolean(from && to && from > to);
   return (
     <>
       <Panel
-        title="Management reports"
+        title="Reports"
         description="Sales and purchase totals use the selected period. Stock balances and warning levels show the current position. Gross profit is an estimate before rent, labor, utilities, and other expenses."
       >
         <div className="report-filters">
@@ -222,15 +222,15 @@ export function Reports({ db }: Props) {
             <span>Report</span>
             <select value={type} onChange={(e) => setType(e.target.value)}>
               {[
-                "Stock movements",
+                "Stock changes",
                 "Sales and profit",
-                "Stock balances",
-                "Low-stock warnings",
+                "Current stock",
+                "Low stock",
                 "Price history",
-                "Pending price requests",
-                "Pending product requests",
-                "Pending promotion entries",
-                "Loss records",
+                "Prices waiting for review",
+                "Products waiting for review",
+                "Discounts waiting for review",
+                "Loss and damage",
               ].map((t) => (
                 <option key={t}>{t}</option>
               ))}
@@ -239,7 +239,7 @@ export function Reports({ db }: Props) {
           <label>
             <span>Store</span>
             <select value={store} onChange={(e) => setStore(e.target.value)}>
-              <option value="">All permitted stores</option>
+              <option value="">All stores</option>
               {db.sme.map((s) => (
                 <option key={String(s.sme_id)} value={String(s.sme_id)}>
                   {s.store_name}
@@ -271,13 +271,13 @@ export function Reports({ db }: Props) {
         ) : (
           <>
             <div className="stat-grid">
-              <Stat title="Recorded sales" value={peso(summary.revenue)} />
+              <Stat title="Sales recorded" value={peso(summary.revenue)} />
               <Stat
-                title="Recorded purchase cost"
+                title="Purchase costs recorded"
                 value={peso(summary.purchases)}
               />
               <Stat
-                title="Estimated gross profit"
+                title="Estimated profit before expenses"
                 value={
                   summary.grossProfit === null
                     ? "Incomplete cost data"
@@ -285,7 +285,7 @@ export function Reports({ db }: Props) {
                 }
               />
               <Stat
-                title="Loss-related records"
+                title="Loss and damage entries"
                 value={String(summary.lossRecords)}
               />
             </div>
