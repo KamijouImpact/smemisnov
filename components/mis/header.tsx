@@ -17,17 +17,13 @@ export function Header({ user }: { user: Account | null }) {
         {user ? (
           <>
             <Link href="/workspace">
-              {user.role === "Customer"
-                ? "My price reports"
-                : user.role === "Administrator"
-                  ? "Manage stores"
-                  : "My store"}
+              {user.role === "Customer" ? "My price reports" : "Workspace"}
             </Link>
             <Logout />
           </>
         ) : (
           <Link className="button small" href="/auth/login">
-            Log in / Register <span>↗</span>
+            Log in
           </Link>
         )}
       </nav>

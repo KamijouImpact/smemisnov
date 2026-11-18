@@ -54,7 +54,7 @@ export function AuthPortal({
         }
         setError(false);
         setMessage(
-          "Check your email to confirm your account. Then return here to log in.",
+          "Check your email and follow the link to confirm your account.",
         );
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -106,19 +106,15 @@ export function AuthPortal({
         <Link className="brand" href="/">
           SME MIS
         </Link>
-        <Link href="/">← Browse products</Link>
+        <Link href="/">Browse products</Link>
       </div>
       <main className="auth-panel">
         <div className="auth-box">
-          <h2>{mode === "login" ? "Log in" : "Create an account"}</h2>
-          <p>
-            {mode === "login"
-              ? "Log in to manage your store or check your price reports."
-              : "Choose how you’ll use the system."}
-          </p>
+          <h1>{mode === "login" ? "Log in" : "Create account"}</h1>
           <div className="auth-tabs">
             <button
               className={mode === "login" ? "selected" : ""}
+              aria-pressed={mode === "login"}
               onClick={() => {
                 setMode("login");
                 setMessage("");
@@ -128,6 +124,7 @@ export function AuthPortal({
             </button>
             <button
               className={mode === "register" ? "selected" : ""}
+              aria-pressed={mode === "register"}
               onClick={() => {
                 setMode("register");
                 setMessage("");
@@ -150,7 +147,7 @@ export function AuthPortal({
                     />
                   </label>
                   <label>
-                    <span>I am a</span>
+                    <span>Account type</span>
                     <select name="role" required>
                       <option value="Owner">Store Owner</option>
                       <option value="Customer">Customer</option>
@@ -204,16 +201,13 @@ export function AuthPortal({
               {busy
                 ? "Please wait…"
                 : mode === "login"
-                  ? "Log in →"
-                  : "Create account →"}
+                  ? "Log in"
+                  : "Create account"}
             </button>
           </form>
           <Link className="subtle-link" href="/auth/forgot-password">
             Forgot your password?
           </Link>
-          <p className="auth-note">
-            Administrator access is assigned by the project owner.
-          </p>
         </div>
       </main>
     </div>
@@ -225,9 +219,9 @@ export function PasswordForm({ update = false }: { update?: boolean }) {
   const [busy, setBusy] = useState(false);
   return (
     <main className="password-page">
-      <Link href="/">← SME MIS</Link>
+      <Link href="/">Browse products</Link>
       <section className="panel">
-        <h1>{update ? "Set a new password" : "Reset your password"}</h1>
+        <h1>{update ? "Set a new password" : "Reset password"}</h1>
         <form
           className="action-form"
           onSubmit={async (e) => {
@@ -253,7 +247,7 @@ export function PasswordForm({ update = false }: { update?: boolean }) {
                 );
                 if (error) throw error;
                 setMessage(
-                  "If the account exists, a reset link has been sent.",
+                  "If an account uses that email, you’ll receive a reset link.",
                 );
               }
             } catch (e) {
@@ -270,6 +264,7 @@ export function PasswordForm({ update = false }: { update?: boolean }) {
               type={update ? "password" : "email"}
               name={update ? "password" : "email"}
               minLength={update ? 8 : undefined}
+              autoComplete={update ? "new-password" : "email"}
             />
           </label>
           {message && (
@@ -285,7 +280,7 @@ export function PasswordForm({ update = false }: { update?: boolean }) {
                 : "Send reset link"}
           </button>
         </form>
-        <Link href="/auth/login">Back to login</Link>
+        <Link href="/auth/login">Back to log in</Link>
       </section>
     </main>
   );

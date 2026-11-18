@@ -39,8 +39,17 @@ export async function workspaceData(
   const byPage: Record<string, string[]> = {
     overview: ["sme", "store_product", "store_price", "price_request"],
     stores: ["sme"],
-    products: [...productTables, "product_request"],
-    catalog: [...productTables, "category", "product_request"],
+    products: [...productTables, "category", "product_request"],
+    catalog: [...productTables, "category"],
+    "product-requests": [
+      "sme",
+      "category",
+      "brand",
+      "product",
+      "product_variation",
+      "product_unit",
+      "product_request",
+    ],
     prices: [
       ...productTables,
       "price_request",
@@ -69,6 +78,8 @@ export async function workspaceData(
         ? ["customer_report"]
         : []
       : (byPage[section] ?? []);
+  if (role === "Administrator" && section === "overview")
+    needed.push("product_request");
   const primary: Record<string, string> = {
     user_account: "user_id",
     sme: "sme_id",

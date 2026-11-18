@@ -4,6 +4,7 @@ import { EmailOtpType } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
+  const headers = { "Cache-Control": "private, no-store" };
   const client = await createClient();
   let error;
   const token_hash = url.searchParams.get("token_hash");
@@ -14,7 +15,10 @@ export async function GET(request: NextRequest) {
   } else if (code) {
     ({ error } = await client.auth.exchangeCodeForSession(code));
   } else error = new Error("Missing confirmation code.");
-  if (error) return NextResponse.redirect(new URL("/auth/error", url.origin));
+  if (error)
+    return NextResponse.redirect(new URL("/auth/error", url.origin), {
+      headers,
+    });
   const {
     data: { user },
   } = await client.auth.getUser();
@@ -34,5 +38,7 @@ export async function GET(request: NextRequest) {
       });
   }
   const next = url.searchParams.get("next");
-  return NextResponse.redirect(new URL(safeNext(next), url.origin));
+  return NextResponse.redirect(new URL(safeNext(next), url.origin), {
+    headers,
+  });
 }

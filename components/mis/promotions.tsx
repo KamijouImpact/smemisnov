@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { ActionForm } from "./form";
 import { Panel, Table, Status } from "./table";
 import {
@@ -11,29 +12,85 @@ import {
 } from "./fields";
 import { date, find, label, peso } from "@/lib/mis/types";
 export function Promotions({ db, admin }: Props) {
+  const openEvents = db.promotion.filter((event) => event.status === "Open");
+  const currentEvents = openEvents.filter(
+    (event) => new Date(String(event.ends_at)) > new Date(),
+  );
+  const currentEventIds = new Set(
+    currentEvents.map((event) => event.promotion_id),
+  );
+  const pastEvents = db.promotion.filter(
+    (event) => !currentEventIds.has(event.promotion_id),
+  );
+  const entries = [...db.promotion_entry].reverse();
+  const pendingDiscounts = entries.filter(
+    (entry) => entry.status === "Pending",
+  );
+  const withdrawableDiscounts = entries.filter(
+    (entry) => entry.status === "Pending" || entry.status === "Approved",
+  );
+  const currentDiscounts = withdrawableDiscounts.filter((entry) =>
+    currentEventIds.has(entry.promotion_id),
+  );
+  const primaryDiscounts = admin ? pendingDiscounts : currentDiscounts;
+  const primaryDiscountIds = new Set(
+    primaryDiscounts.map((entry) => entry.promotion_entry_id),
+  );
+  const pastDiscounts = entries.filter(
+    (entry) => !primaryDiscountIds.has(entry.promotion_entry_id),
+  );
+  const eventColumns: ComponentProps<typeof Table>["columns"] = [
+    { key: "promotion_name", label: "Event" },
+    { key: "description", label: "Details" },
+    {
+      key: "starts_at",
+      label: "Starts",
+      render: (r) => date(r.starts_at),
+    },
+    { key: "ends_at", label: "Ends", render: (r) => date(r.ends_at) },
+    {
+      key: "status",
+      label: "Status",
+      render: (r) => <Status value={r.status} />,
+    },
+  ];
+  const discountColumns: ComponentProps<typeof Table>["columns"] = [
+    { key: "promotion_entry_id", label: "Entry" },
+    {
+      key: "promotion_id",
+      label: "Event",
+      render: (r) =>
+        String(find(db, "promotion", r.promotion_id).promotion_name),
+    },
+    {
+      key: "store_price_id",
+      label: "Product",
+      render: (r) => label(db, r.store_price_id),
+    },
+    {
+      key: "promotion_price",
+      label: "Discount price",
+      render: (r) => peso(r.promotion_price),
+    },
+    { key: "regular_history_id", label: "Regular price record" },
+    {
+      key: "status",
+      label: "Status",
+      render: (r) => <Status value={r.status} />,
+    },
+    { key: "decision_reason", label: "Decision reason" },
+  ];
   return (
     <>
       <Panel
-        title="Promotions"
-        description="The Administrator creates events. Each Owner chooses whether to join and submits a discount for approval. Regular prices are kept separately."
+        title={
+          admin ? "Current and upcoming promotions" : "Promotions you can join"
+        }
       >
         <Table
-          rows={db.promotion}
-          columns={[
-            { key: "promotion_name", label: "Event" },
-            { key: "description", label: "Details" },
-            {
-              key: "starts_at",
-              label: "Starts",
-              render: (r) => date(r.starts_at),
-            },
-            { key: "ends_at", label: "Ends", render: (r) => date(r.ends_at) },
-            {
-              key: "status",
-              label: "Status",
-              render: (r) => <Status value={r.status} />,
-            },
-          ]}
+          rows={currentEvents}
+          columns={eventColumns}
+          empty="No current or upcoming promotions."
         />
       </Panel>
       {admin ? (
@@ -58,26 +115,28 @@ export function Promotions({ db, admin }: Props) {
               submit="Create event"
             />
           </Panel>
-          <Panel title="Cancel a promotion">
-            <ActionForm
-              action="cancel_promotion"
-              fields={[
-                select(
-                  "promotion_id",
-                  "Event",
-                  db.promotion.filter((r) => r.status === "Open"),
-                  "promotion_id",
-                  (r) => String(r.promotion_name),
-                ),
-              ]}
-              submit="Cancel event"
-            />
-          </Panel>
+          {openEvents.length > 0 && (
+            <Panel collapsible title="Cancel a promotion">
+              <ActionForm
+                action="cancel_promotion"
+                fields={[
+                  select(
+                    "promotion_id",
+                    "Event",
+                    openEvents,
+                    "promotion_id",
+                    (r) => String(r.promotion_name),
+                  ),
+                ]}
+                submit="Cancel event"
+              />
+            </Panel>
+          )}
         </div>
-      ) : (
+      ) : currentEvents.length > 0 ? (
         <Panel
           title="Offer a discount"
-          description="A discount starts only after approval and during the event dates. Withdraw a rejected or outdated entry and submit a corrected one."
+          description="Approved discounts apply during the event. You can submit a correction for a rejected or withdrawn request."
         >
           <ActionForm
             action="promotion_entry"
@@ -85,11 +144,7 @@ export function Promotions({ db, admin }: Props) {
               select(
                 "promotion_id",
                 "Event",
-                db.promotion.filter(
-                  (r) =>
-                    r.status === "Open" &&
-                    new Date(String(r.ends_at)) > new Date(),
-                ),
+                currentEvents,
                 "promotion_id",
                 (r) => String(r.promotion_name),
               ),
@@ -110,39 +165,23 @@ export function Promotions({ db, admin }: Props) {
             submit="Submit discount"
           />
         </Panel>
-      )}
-      <Panel title="Discount requests">
+      ) : null}
+      <Panel
+        title={
+          admin ? "Discounts waiting for approval" : "My discount requests"
+        }
+      >
         <Table
-          rows={[...db.promotion_entry].reverse()}
-          columns={[
-            { key: "promotion_entry_id", label: "Entry" },
-            {
-              key: "promotion_id",
-              label: "Event",
-              render: (r) =>
-                String(find(db, "promotion", r.promotion_id).promotion_name),
-            },
-            {
-              key: "store_price_id",
-              label: "Product",
-              render: (r) => label(db, r.store_price_id),
-            },
-            {
-              key: "promotion_price",
-              label: "Discount price",
-              render: (r) => peso(r.promotion_price),
-            },
-            { key: "regular_history_id", label: "Regular price record" },
-            {
-              key: "status",
-              label: "Status",
-              render: (r) => <Status value={r.status} />,
-            },
-            { key: "decision_reason", label: "Decision reason" },
-          ]}
+          rows={primaryDiscounts}
+          columns={discountColumns}
+          empty={
+            admin
+              ? "No discounts need approval."
+              : "You have no pending or approved discounts for open promotions."
+          }
         />
       </Panel>
-      {admin ? (
+      {admin && pendingDiscounts.length > 0 ? (
         <Panel title="Approve or reject a discount">
           <ActionForm
             action="review_promotion"
@@ -150,7 +189,7 @@ export function Promotions({ db, admin }: Props) {
               select(
                 "promotion_entry_id",
                 "Pending entry",
-                db.promotion_entry.filter((r) => r.status === "Pending"),
+                pendingDiscounts,
                 "promotion_entry_id",
                 (r) =>
                   `#${r.promotion_entry_id} · ${label(db, r.store_price_id)}`,
@@ -159,17 +198,15 @@ export function Promotions({ db, admin }: Props) {
             ]}
           />
         </Panel>
-      ) : (
-        <Panel title="Cancel a discount">
+      ) : !admin && withdrawableDiscounts.length > 0 ? (
+        <Panel collapsible title="Cancel a discount">
           <ActionForm
             action="withdraw_promotion"
             fields={[
               select(
                 "promotion_entry_id",
                 "Entry",
-                db.promotion_entry.filter((r) =>
-                  ["Pending", "Approved"].includes(String(r.status)),
-                ),
+                withdrawableDiscounts,
                 "promotion_entry_id",
                 (r) =>
                   `#${r.promotion_entry_id} · ${label(db, r.store_price_id)}`,
@@ -179,7 +216,24 @@ export function Promotions({ db, admin }: Props) {
             submit="Cancel discount"
           />
         </Panel>
-      )}
+      ) : null}
+      <Panel
+        collapsible
+        title={admin ? "Reviewed discount requests" : "Past discount requests"}
+      >
+        <Table
+          rows={pastDiscounts}
+          columns={discountColumns}
+          empty="No past discount requests."
+        />
+      </Panel>
+      <Panel collapsible title="Past and cancelled promotions">
+        <Table
+          rows={pastEvents}
+          columns={eventColumns}
+          empty="No past or cancelled promotions."
+        />
+      </Panel>
     </>
   );
 }

@@ -17,7 +17,7 @@ The live document revision was checked against the preceding PHP implementation'
 
 Exactly three user roles are implemented: Administrator, Owner, and Customer. The Owner performs the store work; no Employee role exists. Guests browse the same public catalog without signing in. A Customer account is needed to submit and follow a report.
 
-Owners see their own stores and private records. The Administrator monitors all stores. Customers see their own reports. Guests and Customers cannot read exact stock quantities, purchase costs, profit estimates, or internal price approvals. Inactive accounts cannot perform business commands. Inactive stores and archived products do not appear as active public listings or price references.
+Owners see their own stores and private records. The Administrator monitors all stores. Active accounts retain access to their own submitted reports after switching from Customer to Owner. Only active Administrators can read the stored price rules. Guests and Customers cannot read exact stock quantities, purchase costs, profit estimates, or internal price approvals. Inactive accounts cannot perform business commands. Inactive stores and archived products do not appear as active public listings or price references.
 
 ## Data Dictionary mapping
 
@@ -27,7 +27,7 @@ The native Auth tables are platform support records, not additional business mod
 
 ## Required business rules
 
-- A Product contains Variations. Each Variation has approved Units with fixed stock conversion. Stores share product identities but keep separate stock and prices.
+- Products remain drafts until they have an active variation and selling unit. An omitted variation name defaults to Standard. Each selling unit has a fixed stock conversion. Stores share product identities and keep separate stock and prices.
 - Brand search keys remove case, accent, and extra-space differences. Administrators curate the product list; the system does not guess that different models or packages are equivalent.
 - Other / Not Listed stays in product review until matched to approved details. It cannot autoapprove a price as an unidentified "Other" product.
 - A price reference uses the exact Variation and Unit, current approved regular price, active records, and allowed age. It excludes the requesting store. Promotions and pending prices are never sources.
@@ -39,7 +39,7 @@ The native Auth tables are platform support records, not additional business mod
 - Sale amounts, cost estimates, price history, and promotion links are frozen on the sale. Later changes do not rewrite them. A different charge needs a reason and appears in sales reports.
 - Latest valid receipt/cost correction supplies the current cost estimate. Reversing it restores the prior valid estimate. Missing costs remain null and prevent a misleading complete profit total.
 - Reports filter by permitted store and Philippine dates. Current stock is distinguished from period movements. Loss records remain per variation and stock unit rather than adding incompatible units.
-- Customer reports retain the exact selling option, seen/charged amounts, approximate time, evidence reference, Owner response, review status, and required closure outcome. The records remain after later price changes.
+- Customer reports retain the exact selling option, seen/charged amounts, approximate time, evidence reference, Owner response, review status, and required closure outcome. Administrators request Owner responses in the app. Closing without a response requires a recorded request and a reason. The records remain after later price changes.
 
 ## Verification
 

@@ -35,19 +35,20 @@ END $$;
 CREATE POLICY account_read ON user_account FOR SELECT TO authenticated USING(user_id=(select auth.uid()) OR (select private.current_role())='Administrator');
 CREATE POLICY store_read ON sme FOR SELECT TO authenticated USING(private.can_store(sme_id));
 DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['category','brand','product','product_variation','product_unit','price_rule','promotion'] LOOP
- EXECUTE format('CREATE POLICY catalog_read ON public.%I FOR SELECT TO authenticated USING ((select private.current_role()) IS NOT NULL)',t);
+ FOREACH t IN ARRAY ARRAY['category','brand','product','product_variation','product_unit','promotion'] LOOP
+ EXECUTE format('CREATE POLICY catalog_read ON public.%I FOR SELECT TO authenticated USING ((select private.current_role()) IN (''Administrator'', ''Owner''))',t);
  END LOOP;
 END $$;
 CREATE POLICY product_request_read ON product_request FOR SELECT TO authenticated USING(private.can_store(sme_id));
 CREATE POLICY store_product_read ON store_product FOR SELECT TO authenticated USING(private.can_store(sme_id));
 CREATE POLICY store_price_read ON store_price FOR SELECT TO authenticated USING(private.can_product(store_product_id));
 CREATE POLICY price_request_read ON price_request FOR SELECT TO authenticated USING(private.can_price(store_price_id));
+CREATE POLICY price_rule_read ON price_rule FOR SELECT TO authenticated USING((select private.current_role())='Administrator');
 CREATE POLICY reference_read ON price_reference FOR SELECT TO authenticated USING((select private.current_role())='Administrator');
 CREATE POLICY history_read ON price_history FOR SELECT TO authenticated USING(private.can_price(store_price_id));
 CREATE POLICY transaction_read ON stock_transaction FOR SELECT TO authenticated USING(private.can_product(store_product_id));
 CREATE POLICY entry_read ON promotion_entry FOR SELECT TO authenticated USING(private.can_price(store_price_id));
-CREATE POLICY report_read ON customer_report FOR SELECT TO authenticated USING((customer_id=(select auth.uid()) AND (select private.current_role())='Customer') OR private.can_price(store_price_id));
+CREATE POLICY report_read ON customer_report FOR SELECT TO authenticated USING((customer_id=(select auth.uid()) AND (select private.current_role()) IS NOT NULL) OR private.can_price(store_price_id));
 
 CREATE FUNCTION private.active_option(id bigint) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
  SELECT EXISTS(SELECT 1 FROM public.store_price s

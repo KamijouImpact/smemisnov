@@ -15,7 +15,7 @@ def form(page,title):
  details=panel.locator(':scope > details')
  if details.count() and not details.evaluate('(el)=>el.open'):details.locator(':scope > summary').click()
  return panel.locator('form').first
-def save(page,title,values):
+def save(page,title,values,done=None):
  f=form(page,title)
  for name,value in values.items():
   control=f.locator('[name="'+name+'"]')
@@ -28,7 +28,11 @@ def save(page,title,values):
     else:control.select_option(**value)
    else:control.select_option(label=value)
   else:control.fill(str(value))
- f.locator('button[type=submit]').click();expect(f.locator('.notice')).to_be_visible(timeout=20000)
+ f.locator('button[type=submit]').click()
+ if done is not None:
+  expect(done).to_be_visible(timeout=20000)
+  return
+ expect(f.locator('.notice')).to_be_visible(timeout=20000)
  msg=f.locator('.notice').inner_text()
  assert f.locator('.notice.success').count(),title+': '+msg
  page.wait_for_timeout(900)
@@ -38,12 +42,24 @@ with sync_playwright() as p:
  browser=p.chromium.launch(headless=True,args=['--no-sandbox'],proxy={'server':os.environ.get('HTTPS_PROXY','http://proxy:8080'),'bypass':'127.0.0.1,localhost'})
  contexts=[];pages={};errors=[]
  for user in users:
-  context=browser.new_context(ignore_https_errors=True,viewport={'width':1365,'height':1000});contexts.append(context);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(BASE+'/auth/login');page.locator('[name=email]').fill(user['email']);page.locator('[name=password]').fill(user['password']);page.get_by_role('button',name='Log in →').click();page.wait_for_url('**/workspace/**',timeout=30000);expect(page.locator('main.workspace-main')).to_be_visible(timeout=30000);pages[user['role']]=page;check(user['role']+' login and workspace')
+  context=browser.new_context(ignore_https_errors=True,viewport={'width':1365,'height':1000});contexts.append(context);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(BASE+'/auth/login');page.locator('[name=email]').fill(user['email']);page.locator('[name=password]').fill(user['password']);page.locator('form').get_by_role('button',name='Log in',exact=True).click();page.wait_for_url('**/workspace/**',timeout=30000);expect(page.locator('main.workspace-main')).to_be_visible(timeout=30000);pages[user['role']]=page;check(user['role']+' login and workspace')
  admin=pages['Administrator'];owner=pages['Owner'];customer=pages['Customer']
- go(owner,'stores');save(owner,'Add a store',{'store_name':'QA Browser Store','business_type':'Small retail','address':'QA test address'});check('Owner registers store')
- go(admin,'stores');save(admin,'Approve or pause a store',{'sme_id':'QA Browser Store · Pending','status':'Active'});check('Administrator activates store')
+ go(owner,'stores');save(owner,'Add a store',{'store_name':'QA Browser Store','business_type':'Small retail','address':'QA test address'},done=owner.get_by_text('QA Browser Store',exact=True));expect(owner.get_by_role('heading',name='Add a store',exact=True)).to_have_count(0);check('Owner registers one store')
+ go(admin,'stores');save(admin,'Approve or pause a store',{'sme_id':'QA Browser Store · Pending','status':{'value':'Active'}});check('Administrator activates store')
  go(admin,'catalog');save(admin,'Categories',{'category_name':'QA Browser Goods','product_type':'Packaged Product'});save(admin,'Brands',{'brand_name':'QA Browser Brand'});save(admin,'Product names',{'category_id':'QA Browser Goods','brand_id':'QA Browser Brand','product_name':'QA Browser Cans'});save(admin,'Product options',{'product_id':{'contains':'QA Browser Cans'},'variation_name':'Original 155g','net_quantity':'155','net_unit':'g','condition':'New','stock_unit':'can','allow_price_reference':{'value':'true'}});save(admin,'Pack sizes',{'variation_id':{'contains':'QA Browser Cans'},'unit_name':'can','stock_units':'1'});save(admin,'Pack sizes',{'variation_id':{'contains':'QA Browser Cans'},'unit_name':'box of 24','stock_units':'24'});check('Shared catalog and fixed packages created')
- go(owner,'products');save(owner,'Add a product',{'sme_id':'QA Browser Store','unit_id':{'contains':'QA Browser Cans · Original 155g · can (1 can)'}});save(owner,'Add a product',{'sme_id':'QA Browser Store','unit_id':{'contains':'QA Browser Cans · Original 155g · box of 24 (24 can)'}});check('Owner selects piece and box of same variation')
+ go(owner,'products');owner.get_by_role('searchbox',name='Search the catalog').fill('Browser Cans')
+ picker=owner.get_by_label('Product',exact=True).first
+ picker.select_option(value=picker.locator('option').filter(has_text='QA Browser Cans').first.get_attribute('value'))
+ save(owner,'Add a product',{'unit_id':{'contains':'can (1 can)'}})
+ save(owner,'Add a product',{'unit_id':{'contains':'box of 24 (24 can)'}},done=owner.get_by_text('All pack sizes for this product have been added.',exact=False))
+ check('Owner searches the catalog and adds two pack sizes for the same product')
+ save(owner,'Product not listed?',{'requested_details':'QA missing biscuit pack'})
+ go(admin,'overview');admin.get_by_role('navigation',name='Workspace',exact=True).get_by_role('link',name='Product requests',exact=True).click()
+ expect(admin.get_by_role('heading',name='Waiting for review',exact=True)).to_be_visible()
+ expect(admin.get_by_text('QA missing biscuit pack',exact=True)).to_be_visible()
+ save(admin,'Review a product request',{'product_request_id':{'contains':'QA missing biscuit pack'},'decision':'Rejected','decision_reason':'Please provide the brand.'},done=admin.get_by_role('heading',name='Reviewed requests',exact=True))
+ go(owner,'products');expect(owner.get_by_text('Please provide the brand.',exact=True)).to_be_visible()
+ check('Administrator sees and reviews Owner product request')
  go(owner,'prices');save(owner,'Request a price',{'store_price_id':{'contains':'· can (1 can)'},'proposed_price':'20','owner_reason':'Initial price'});expect(owner.get_by_text('Waiting for review',exact=True).first).to_be_visible();check('Initial price held for review')
  go(admin,'prices');save(admin,'Approve or reject a price',{'price_request_id':'FIRST','decision':'Approved','decision_reason':'Initial review confirms exact can.'});check('Administrator approves selling price')
  go(owner,'stock');owner.locator('.stock-picker select').nth(0).select_option(index=1);owner.locator('.stock-picker select').nth(1).select_option(value='Opening');save(owner,'Update stock',{'unit_id':{'index':2},'entered_quantity':'2','total_purchase_cost':'240'});expect(owner.get_by_text('48 can',exact=True)).to_be_visible();check('Two boxes create 48 stock units')
@@ -51,7 +67,11 @@ with sync_playwright() as p:
  guest_context=browser.new_context(ignore_https_errors=True,viewport={'width':390,'height':844});contexts.append(guest_context);guest=guest_context.new_page();guest.goto(BASE);expect(guest.get_by_role('heading',name='QA Browser Cans',exact=True)).to_be_visible(timeout=30000);expect(guest.get_by_text('₱20.00',exact=True)).to_be_visible();assert not guest.locator('.notice.error').count();assert not guest.evaluate('document.documentElement.scrollWidth>innerWidth');guest.screenshot(path='/tmp/smemis-products-mobile.png',full_page=True);check('Guest browses price and availability on phone without login')
  go(admin,'promotions');now=datetime.now(timezone(timedelta(hours=8)));save(admin,'Create a promotion',{'promotion_name':'QA Browser Event','starts_at':(now-timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M'),'ends_at':(now+timedelta(days=1)).strftime('%Y-%m-%dT%H:%M')});go(owner,'promotions');save(owner,'Offer a discount',{'promotion_id':'QA Browser Event','store_price_id':{'contains':'· can (1 can)'},'promotion_price':'18'});go(admin,'promotions');save(admin,'Approve or reject a discount',{'promotion_entry_id':'FIRST','decision':'Approved','decision_reason':'Event discount accepted.'});guest.reload();expect(guest.get_by_text('₱18.00',exact=True)).to_be_visible();check('Approved event discount replaces display price')
  go(customer,'concerns');customer.locator('.standalone-field select').select_option(value=customer.locator('.standalone-field option').filter(has_text='QA Browser Store').first.get_attribute('value'));save(customer,'Report a price problem',{'listed_price':'18','charged_price':'20','description':'QA charged regular price during event','evidence_reference':'QA receipt'});check('Customer reports a listed-price difference')
- go(owner,'concerns');save(owner,'Respond to a report',{'customer_report_id':'FIRST','owner_response':'QA checking receipt.'});go(admin,'concerns');save(admin,'Review a price report',{'customer_report_id':'FIRST','status':'Closed','outcome':'Confirmed Discrepancy','outcome_details':'QA receipt and event records confirm difference.'});go(customer,'concerns');expect(customer.get_by_text('Confirmed Discrepancy',exact=True)).to_be_visible();check('Owner response and Administrator outcome visible to Customer')
+ go(admin,'concerns');save(admin,'Request an Owner response',{'customer_report_id':{'contains':'QA charged regular price during event'}})
+ go(customer,'concerns');expect(customer.get_by_text('Response requested',exact=False).first).to_be_visible()
+ go(owner,'concerns');save(owner,'Respond to a report',{'customer_report_id':{'contains':'QA charged regular price during event'},'owner_response':'QA checking receipt.'})
+ go(admin,'concerns');save(admin,'Review a price report',{'customer_report_id':{'contains':'QA charged regular price during event'},'status':'Closed','outcome':'Confirmed Discrepancy','outcome_details':'QA receipt and event records confirm difference.'})
+ go(customer,'concerns');customer.locator('summary').filter(has_text='My closed price reports').click();expect(customer.get_by_text('Confirmed Discrepancy',exact=True)).to_be_visible();check('Administrator request, Owner response, and closure visible to Customer')
  go(owner,'prices');save(owner,'Request a price',{'store_price_id':{'contains':'· can (1 can)'},'proposed_price':'40','owner_reason':'Higher purchase and transport costs.'});go(admin,'prices');save(admin,'Approve or reject a price',{'price_request_id':'FIRST','decision':'Rejected','decision_reason':'Please correct the proposed amount.'});go(owner,'prices');save(owner,'Request a price',{'store_price_id':{'contains':'· can (1 can)'},'proposed_price':'21','owner_reason':'Corrected proposal.','previous_request_id':'FIRST'});check('Rejected request corrected and resubmitted')
  go(owner,'reports');expect(owner.get_by_text('₱60.00',exact=True)).to_be_visible();expect(owner.get_by_text('₱45.00',exact=True)).to_be_visible();with_download=owner.expect_download()
  with with_download as downloaded:owner.get_by_role('button',name='Export CSV').click()
