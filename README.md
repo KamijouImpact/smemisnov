@@ -4,7 +4,7 @@ A Next.js and Supabase implementation of the project document. It supports Admin
 
 ## Main functions
 
-- One login/register portal, email confirmation, password recovery, and separate role access.
+- One login/register portal, optional email confirmation, password recovery, and separate role access.
 - Store registration and Administrator review.
 - Shared categories, brands, products, variations, and fixed selling packages.
 - Other / Not Listed requests that the Administrator matches or resolves.
@@ -31,20 +31,20 @@ The connected project is `smemisDB` (`zueuocwtbbbptoqscilq`). Its migrations hav
 
 ## First Administrator
 
-For this deployment, the connected project owner's verified email (`kenthilo0000@gmail.com`) receives Administrator access after email confirmation. Register through the same portal and confirm the email. The choice of Owner or Customer on that form does not grant Administrator access.
+Register through the normal portal. When Supabase email confirmation is off, registration signs the user in immediately. Public registration creates only an Owner or Customer account.
 
-This trusted email is deployment configuration in the `owner_administrator_setup` migration. Change it before using these migrations for a different owner. Registration metadata never authorizes Administrator access.
+Administrator access is assigned separately by the database owner. An email address, confirmation timestamp, or registration metadata never grants this role. This also applies to `kenthilo0000@gmail.com`; the old email-based setup has been removed.
 
-For other Administrators, the database owner can promote a verified, registered account in the Supabase SQL Editor:
+In Supabase Authentication → Users, identify the intended account and copy its UUID. Confirm that it belongs to the intended Administrator, then run this in the SQL Editor with that UUID:
 
 ```sql
-update public.user_account a
+update public.user_account
 set role = 'Administrator'
-from auth.users u
-where u.id = a.user_id
-  and lower(u.email) = lower('verified-admin@example.com')
-  and u.email_confirmed_at is not null;
+where user_id = 'replace-with-the-intended-account-uuid'::uuid
+returning user_id, full_name, role;
 ```
+
+Do not assign Administrator by email alone when confirmation is off. Knowing or registering an email address does not prove ownership.
 
 There are no shared demo passwords or public test accounts in this repository.
 
@@ -91,7 +91,7 @@ Run `tests/database.sql` through the database owner's SQL connection. It creates
 
 ## Auth setup
 
-In Supabase Authentication URL settings, use your live domain as the Site URL and allow its `/auth/confirm` and `/auth/update-password` URLs. Allow localhost equivalents for development. Keep email confirmation enabled because Administrator setup relies on verified ownership of the configured email. Supabase's default mail service has delivery and recipient limits; configure an SMTP provider for open public registration when those limits apply.
+In Supabase Authentication URL settings, use your live domain as the Site URL and allow its `/auth/confirm` and `/auth/update-password` URLs. Allow localhost equivalents for development. Email confirmation may be turned off in Supabase. With it off, registration opens the account immediately; with it on, the app asks the user to confirm. Password-reset email still needs a working mail provider. Supabase's default mail service has delivery and recipient limits; configure an SMTP provider for open public registration when those limits apply.
 
 ## Boundaries
 

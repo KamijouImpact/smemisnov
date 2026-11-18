@@ -110,8 +110,8 @@ export function MyAccount({ user }: { user: Account }) {
         action="profile"
         fields={[{ ...text("full_name", "Full name"), value: user.full_name }]}
       />
-      <a className="subtle-link" href="/auth/forgot-password">
-        Request a password reset
+      <a className="subtle-link" href="/auth/update-password">
+        Change password
       </a>
     </Panel>
   );

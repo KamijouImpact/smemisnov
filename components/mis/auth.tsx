@@ -48,7 +48,7 @@ export function AuthPortal({
             a: { role: requested_role, full_name },
           });
           if (error) throw error;
-          router.push("/workspace");
+          router.push(safeNext(next));
           router.refresh();
           return;
         }
