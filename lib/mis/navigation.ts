@@ -21,6 +21,7 @@ export function navigation(role: Account["role"]) {
       primary: [
         item("overview", "Overview"),
         item("stores", "Store approvals"),
+        item("product-requests", "Product requests"),
         item("prices", "Price approvals"),
         item("concerns", "Price reports"),
       ],

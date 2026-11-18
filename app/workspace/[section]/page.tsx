@@ -18,6 +18,7 @@ export default async function Section({
       "stores",
       "products",
       "catalog",
+      "product-requests",
       "prices",
       "stock",
       "promotions",
@@ -33,7 +34,7 @@ export default async function Section({
     redirect("/workspace/concerns");
   if (
     user.role !== "Administrator" &&
-    ["catalog", "rules", "accounts"].includes(section)
+    ["catalog", "product-requests", "rules", "accounts"].includes(section)
   )
     notFound();
   if (user.role === "Administrator" && section === "products")

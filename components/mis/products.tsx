@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ComponentProps } from "react";
 import { ActionForm } from "./form";
 import { AddProduct, type CatalogChoice } from "./add-product";
 import { Panel, Table, Status } from "./table";
@@ -13,14 +14,9 @@ import {
   text,
   unitField,
 } from "./fields";
-import { date, find, label, peso } from "@/lib/mis/types";
-export function Products({ db, admin }: Props) {
-  const activeStores = db.sme.filter((s) => s.status === "Active");
-  const stores = activeStores.map((store) => ({
-    value: String(store.sme_id),
-    label: String(store.store_name),
-  }));
-  const availableUnits = db.product_unit.flatMap((unit) => {
+import { type Database, date, find, label, peso } from "@/lib/mis/types";
+function activeCatalogUnits(db: Database) {
+  return db.product_unit.flatMap((unit) => {
     if (unit.status !== "Active") return [];
     const variation = find(db, "product_variation", unit.variation_id);
     const product = find(db, "product", variation.product_id);
@@ -33,6 +29,15 @@ export function Products({ db, admin }: Props) {
       ? [{ unit, variation, product, brand }]
       : [];
   });
+}
+
+export function Products({ db, admin }: Props) {
+  const activeStores = db.sme.filter((s) => s.status === "Active");
+  const stores = activeStores.map((store) => ({
+    value: String(store.sme_id),
+    label: String(store.store_name),
+  }));
+  const availableUnits = activeCatalogUnits(db);
   const choices = new Map<string, CatalogChoice>();
   const addedUnits: Record<string, string[]> = {};
   if (!admin && activeStores.length) {
@@ -79,9 +84,6 @@ export function Products({ db, admin }: Props) {
   }
   const catalogChoices = [...choices.values()].sort((a, b) =>
     a.label.localeCompare(b.label),
-  );
-  const pendingRequests = db.product_request.filter(
-    (r) => r.status === "Pending Product Review",
   );
   const editableListings = db.store_price.filter((r) => {
     const store = find(db, "store_product", r.store_product_id).sme_id;
@@ -196,40 +198,63 @@ export function Products({ db, admin }: Props) {
           />
         </Panel>
       )}
-      <Panel
-        collapsible
-        open={pendingRequests.length > 0}
-        title="Product requests"
-      >
+      {!admin && <ProductRequests db={db} admin={false} />}
+    </>
+  );
+}
+export function ProductRequests({ db, admin }: Props) {
+  const pendingRequests = db.product_request.filter(
+    (request) => request.status === "Pending Product Review",
+  );
+  const reviewedRequests = db.product_request.filter(
+    (request) => request.status !== "Pending Product Review",
+  );
+  const catalogUnits = admin
+    ? activeCatalogUnits(db).map(({ unit }) => unit)
+    : [];
+  const columns: ComponentProps<typeof Table>["columns"] = [
+    { key: "product_request_id", label: "Request" },
+    {
+      key: "sme_id",
+      label: "Store",
+      render: (row) => String(find(db, "sme", row.sme_id).store_name),
+    },
+    { key: "requested_details", label: "Product details" },
+    {
+      key: "submitted_at",
+      label: "Submitted",
+      render: (row) => date(row.submitted_at),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) => <Status value={row.status} />,
+    },
+    { key: "decision_reason", label: "Decision reason" },
+  ];
+
+  return (
+    <>
+      <Panel title={admin ? "Waiting for review" : "My product requests"}>
         <Table
-          rows={db.product_request}
-          columns={[
-            { key: "product_request_id", label: "Request" },
-            {
-              key: "sme_id",
-              label: "Store",
-              render: (r) => String(find(db, "sme", r.sme_id).store_name),
-            },
-            { key: "requested_details", label: "Product details" },
-            {
-              key: "submitted_at",
-              label: "Submitted",
-              render: (r) => date(r.submitted_at),
-            },
-            {
-              key: "status",
-              label: "Status",
-              render: (r) => <Status value={r.status} />,
-            },
-            { key: "decision_reason", label: "Decision reason" },
-          ]}
+          rows={admin ? pendingRequests : db.product_request}
+          empty={
+            admin
+              ? "No product requests are waiting for review."
+              : "You haven’t sent a product request."
+          }
+          columns={columns}
         />
       </Panel>
       {admin && pendingRequests.length > 0 && (
         <Panel
           title="Review a product request"
-          description="To approve, select the exact matching pack size. Create it in the catalog first if it’s missing."
+          description="Choose the matching pack size to approve a request, or give a reason for rejecting it."
         >
+          <p className="muted-text">
+            If the pack size is missing,{" "}
+            <Link href="/workspace/catalog">add it to the catalog</Link> first.
+          </p>
           <ActionForm
             action="review_product"
             fields={[
@@ -241,21 +266,27 @@ export function Products({ db, admin }: Props) {
                 (r) => `#${r.product_request_id} · ${r.requested_details}`,
               ),
               ...decisionFields,
-              unitField(
-                { ...db, product_unit: availableUnits.map(({ unit }) => unit) },
-                false,
-              ),
+              unitField({ ...db, product_unit: catalogUnits }, false),
             ]}
             submit="Save decision"
           />
         </Panel>
       )}
+      {admin && reviewedRequests.length > 0 && (
+        <Panel collapsible title="Reviewed requests">
+          <Table rows={reviewedRequests} columns={columns} />
+        </Panel>
+      )}
     </>
   );
 }
+
 export function Catalog({ db }: Props) {
   return (
     <>
+      <p className="notice">
+        <Link href="/workspace/product-requests">Review product requests</Link>
+      </p>
       <p className="notice">
         Add a category, then a product name, option, and pack size. A product
         stays in draft until it has an active option and pack size.

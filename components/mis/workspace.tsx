@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Account, Database, Row } from "@/lib/mis/types";
 import { pageName } from "@/lib/mis/navigation";
 import { Stores, Accounts, MyAccount } from "./accounts";
-import { Products, Catalog } from "./products";
+import { Products, Catalog, ProductRequests } from "./products";
 import { Prices, Rules } from "./prices";
 import { Stock } from "./stock";
 import { Promotions } from "./promotions";
@@ -16,6 +16,16 @@ function nextTask(db: Database, admin: boolean, waitingPrices: number) {
         path: "stores",
         title: "Review new stores",
         text: "Check the store registrations waiting for approval.",
+      };
+    if (
+      db.product_request.some(
+        (request) => request.status === "Pending Product Review",
+      )
+    )
+      return {
+        path: "product-requests",
+        title: "Review product requests",
+        text: "Stores are waiting for a catalog product or pack size.",
       };
     if (waitingPrices)
       return {
@@ -32,7 +42,7 @@ function nextTask(db: Database, admin: boolean, waitingPrices: number) {
     return {
       path: "reports",
       title: "View sales and stock reports",
-      text: "No stores or prices are waiting for approval.",
+      text: "No stores, products, or prices are waiting for approval.",
     };
   }
 
@@ -119,6 +129,10 @@ function Home({ db, role }: { db: Database; role: Account["role"] }) {
           {(admin
             ? [
                 ["stores", "Approve new store registrations."],
+                [
+                  "product-requests",
+                  "Review products and pack sizes requested by stores.",
+                ],
                 ["prices", "Check prices that need a decision."],
                 ["concerns", "Check reported price problems."],
                 ["reports", "See store, sales, and stock records."],
@@ -160,6 +174,7 @@ export function WorkspacePage({
     stores: <Stores {...props} />,
     products: <Products {...props} />,
     catalog: <Catalog {...props} />,
+    "product-requests": <ProductRequests {...props} />,
     prices: <Prices {...props} />,
     rules: <Rules {...props} />,
     stock: <Stock {...props} />,
