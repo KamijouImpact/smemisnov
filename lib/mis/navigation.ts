@@ -1,50 +1,70 @@
 import type { Account } from "./types";
-type LinkItem = { path: string; label: string; icon: string };
-const item = (path: string, label: string, icon: string): LinkItem => ({
-  path,
-  label,
-  icon,
-});
+
+type LinkItem = { path: string; label: string };
+const item = (path: string, label: string): LinkItem => ({ path, label });
+
 export function navigation(role: Account["role"]) {
+  const account = item("account", "My account");
   if (role === "Customer")
     return {
-      main: [item("concerns", "My price reports", "◎")],
-      more: [item("account", "My account", "◉")],
+      primary: [item("concerns", "My price reports"), account],
+      groups: [],
     };
+
+  const support = [
+    item("reports", "Sales & stock reports"),
+    item("promotions", "Promotions"),
+  ];
+
+  if (role === "Administrator")
+    return {
+      primary: [
+        item("overview", "Overview"),
+        item("stores", "Store approvals"),
+        item("prices", "Price approvals"),
+        item("concerns", "Price reports"),
+      ],
+      groups: [
+        {
+          label: "Catalog and reports",
+          items: [
+            item("catalog", "Product catalog"),
+            item("stock", "Stock levels"),
+            ...support,
+          ],
+        },
+        {
+          label: "Settings",
+          items: [
+            item("rules", "Price rules"),
+            item("accounts", "User accounts"),
+            account,
+          ],
+        },
+      ],
+    };
+
   return {
-    main: [
-      item("overview", "Home", "▦"),
-      ...(role === "Administrator" ? [item("stores", "Stores", "⌂")] : []),
-      item(role === "Administrator" ? "catalog" : "products", "Products", "▧"),
-      item("prices", "Prices", "₱"),
-      item("stock", "Stock", "▤"),
-      item("reports", "Reports", "◷"),
-      item("concerns", "Price reports", "◎"),
+    primary: [
+      item("overview", "Overview"),
+      item("products", "My products"),
+      item("prices", "Price requests"),
+      item("stock", "Stock"),
+      item("stores", "My stores"),
     ],
-    more: [
-      ...(role === "Owner" ? [item("stores", "My stores", "⌂")] : []),
-      item("promotions", "Promotions", "✧"),
-      ...(role === "Administrator"
-        ? [
-            item("rules", "Price settings", "≋"),
-            item("accounts", "User accounts", "◉"),
-          ]
-        : []),
-      item("account", "My account", "◉"),
+    groups: [
+      {
+        label: "Reports and promotions",
+        items: [item("concerns", "Price reports"), ...support],
+      },
+      { label: "Account", items: [account] },
     ],
   };
 }
-export const pageNames: Record<string, string> = {
-  overview: "Home",
-  stores: "Stores",
-  products: "Products",
-  catalog: "Products",
-  prices: "Prices",
-  stock: "Stock",
-  reports: "Reports",
-  concerns: "Price reports",
-  promotions: "Promotions",
-  rules: "Price settings",
-  accounts: "User accounts",
-  account: "My account",
-};
+
+export function pageName(role: Account["role"], section: string) {
+  const { primary, groups } = navigation(role);
+  return [...primary, ...groups.flatMap(({ items }) => items)].find(
+    (item) => item.path === section,
+  )?.label;
+}

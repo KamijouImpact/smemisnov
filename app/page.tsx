@@ -17,6 +17,7 @@ export default async function Browse({
     search: params.q || "",
   });
   const all: Row[] = data || [];
+  const hasFilters = Boolean(params.q || params.category || params.store);
   const rows = all.filter(
     (r) =>
       (!params.category || r.category_name === params.category) &&
@@ -28,20 +29,14 @@ export default async function Browse({
       <main className="public-main">
         <section className="browse-heading">
           <h1>Browse products</h1>
-          <p>
-            Find a product, check its price, and see if it is in stock. No login
-            needed.
-          </p>
+          <p>Compare prices and check stock at local stores.</p>
         </section>
         <section className="catalog-area">
-          <p className="count search-count">
-            {rows.length} {rows.length === 1 ? "product" : "products"}
-          </p>
           <form className="searchbar">
             <label className="search-input">
               <span aria-hidden="true">⌕</span>
               <input
-                aria-label="Search products or stores"
+                aria-label="Search products, brands, or stores"
                 name="q"
                 placeholder="Search products, brands, or stores…"
                 defaultValue={params.q}
@@ -73,6 +68,14 @@ export default async function Browse({
             </select>
             <button className="button">Search</button>
           </form>
+          {!error && rows.length > 0 && (
+            <div className="catalog-results">
+              <p className="count">
+                {rows.length} {rows.length === 1 ? "listing" : "listings"}
+              </p>
+              {hasFilters && <Link href="/">Clear filters</Link>}
+            </div>
+          )}
           {error ? (
             <div className="notice error" role="alert">
               Products could not be loaded. Please try again shortly.
@@ -92,7 +95,7 @@ export default async function Browse({
                       </span>
                       <Status value={r.availability} />
                     </div>
-                    <h3>{r.product_name}</h3>
+                    <h2>{r.product_name}</h2>
                     <p className="variation">
                       {[
                         r.model_or_style,
@@ -130,7 +133,7 @@ export default async function Browse({
                       </p>
                     )}
                     <div className="store-line">
-                      <span>⌂ {r.store_name}</span>
+                      <span>{r.store_name}</span>
                       <small>{r.address}</small>
                     </div>
                     <div className="product-footer">
@@ -140,7 +143,7 @@ export default async function Browse({
                       <Link
                         href={`/workspace/concerns?item=${r.store_price_id}`}
                       >
-                        Report a price problem →
+                        Report a price problem
                       </Link>
                     </div>
                   </div>
@@ -149,34 +152,24 @@ export default async function Browse({
             </div>
           ) : (
             <div className="empty large">
-              <span>▦</span>
               <h3>
-                {params.q ? "No matching products" : "No products listed yet"}
+                {hasFilters ? "No matching products" : "No products listed yet"}
               </h3>
-              <p>
-                {params.q
-                  ? "Try another product, brand, or store name."
-                  : "Approved store listings will appear here. Owners can register a store and submit products for review."}
-              </p>
+              {hasFilters && <p>Try another search or clear the filters.</p>}
               <Link
                 className="button outline"
-                href={params.q ? "/" : "/auth/login?mode=register"}
+                href={hasFilters ? "/" : "/auth/login?mode=register"}
               >
-                {params.q ? "Clear search" : "Add your store"}
+                {hasFilters ? "Clear filters" : "Register your store"}
               </Link>
             </div>
           )}
         </section>
         <p className="catalog-footnote">
-          Availability is based on each store’s records. Check with the store
-          before visiting. Price approval follows system rules and review.
+          Stock availability comes from store records. Check with the store
+          before visiting.
         </p>
       </main>
-      <footer className="footer">
-        <span>SME MIS</span>
-        <p>Prices and stock for small stores.</p>
-        <span>Price & Stock Control</span>
-      </footer>
     </>
   );
 }

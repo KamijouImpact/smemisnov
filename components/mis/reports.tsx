@@ -4,7 +4,7 @@ import { Panel, Table } from "./table";
 import { Props } from "./fields";
 import { Row, date, find, label, peso } from "@/lib/mis/types";
 import { csv, summarize, saleDetails } from "@/lib/mis/report";
-export function Reports({ db }: Props) {
+export function Reports({ db, admin }: Props) {
   const [store, setStore] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -210,36 +210,43 @@ export function Reports({ db }: Props) {
       { key: "recorded", label: "Date" },
     ];
   }
-  const invalid = Boolean(from && to && from > to);
+  const snapshot = type === "Current stock" || type === "Low stock";
+  const invalid = !snapshot && Boolean(from && to && from > to);
+  const showSummary = type === "Stock changes" || type === "Sales and profit";
+  const storeOptions = admin ? "All stores" : "All my stores";
   return (
     <>
       <Panel
-        title="Reports"
-        description="Sales and purchase totals use the selected period. Stock balances and warning levels show the current position. Gross profit is an estimate before rent, labor, utilities, and other expenses."
+        title="Choose a report"
+        description={
+          snapshot
+            ? "Stock balances show current quantities."
+            : "Use the date range to narrow records by Philippine time."
+        }
       >
         <div className="report-filters">
           <label>
             <span>Report</span>
             <select value={type} onChange={(e) => setType(e.target.value)}>
-              {[
-                "Stock changes",
-                "Sales and profit",
-                "Current stock",
-                "Low stock",
-                "Price history",
-                "Prices waiting for review",
-                "Products waiting for review",
-                "Discounts waiting for review",
-                "Loss and damage",
-              ].map((t) => (
-                <option key={t}>{t}</option>
-              ))}
+              <optgroup label="Stock and sales">
+                <option>Stock changes</option>
+                <option>Current stock</option>
+                <option>Low stock</option>
+                <option>Sales and profit</option>
+                <option>Loss and damage</option>
+              </optgroup>
+              <optgroup label="Prices and approvals">
+                <option>Price history</option>
+                <option>Prices waiting for review</option>
+                <option>Products waiting for review</option>
+                <option>Discounts waiting for review</option>
+              </optgroup>
             </select>
           </label>
           <label>
             <span>Store</span>
             <select value={store} onChange={(e) => setStore(e.target.value)}>
-              <option value="">All stores</option>
+              <option value="">{storeOptions}</option>
               {db.sme.map((s) => (
                 <option key={String(s.sme_id)} value={String(s.sme_id)}>
                   {s.store_name}
@@ -247,22 +254,26 @@ export function Reports({ db }: Props) {
               ))}
             </select>
           </label>
-          <label>
-            <span>From (PH)</span>
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-            />
-          </label>
-          <label>
-            <span>To (PH)</span>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-            />
-          </label>
+          {!snapshot && (
+            <>
+              <label>
+                <span>From (PH)</span>
+                <input
+                  type="date"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                />
+              </label>
+              <label>
+                <span>To (PH)</span>
+                <input
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                />
+              </label>
+            </>
+          )}
         </div>
         {invalid ? (
           <p className="notice error">
@@ -270,30 +281,35 @@ export function Reports({ db }: Props) {
           </p>
         ) : (
           <>
-            <div className="stat-grid">
-              <Stat title="Sales recorded" value={peso(summary.revenue)} />
-              <Stat
-                title="Purchase costs recorded"
-                value={peso(summary.purchases)}
-              />
-              <Stat
-                title="Estimated profit before expenses"
-                value={
-                  summary.grossProfit === null
-                    ? "Incomplete cost data"
-                    : peso(summary.grossProfit)
-                }
-              />
-              <Stat
-                title="Loss and damage entries"
-                value={String(summary.lossRecords)}
-              />
-            </div>
-            {summary.missingCostRecords > 0 && (
-              <p className="notice">
-                {summary.missingCostRecords} sale or reversal records have no
-                saved purchase cost. A complete profit total is unavailable.
-              </p>
+            {showSummary && (
+              <>
+                <div className="stat-grid">
+                  <Stat title="Sales recorded" value={peso(summary.revenue)} />
+                  <Stat
+                    title="Purchase costs recorded"
+                    value={peso(summary.purchases)}
+                  />
+                  <Stat
+                    title="Estimated profit before expenses"
+                    value={
+                      summary.grossProfit === null
+                        ? "Incomplete cost data"
+                        : peso(summary.grossProfit)
+                    }
+                  />
+                  <Stat
+                    title="Loss and damage entries"
+                    value={String(summary.lossRecords)}
+                  />
+                </div>
+                {summary.missingCostRecords > 0 && (
+                  <p className="notice">
+                    {summary.missingCostRecords} sale or reversal records have
+                    no saved purchase cost. A complete profit total is
+                    unavailable.
+                  </p>
+                )}
+              </>
             )}
             <div className="report-actions">
               <button
@@ -326,7 +342,15 @@ export function Reports({ db }: Props) {
                 {rows.length} records · Philippine time
               </span>
             </div>
-            <Table rows={rows} columns={columns} />
+            <Table
+              rows={rows}
+              columns={columns}
+              empty={
+                snapshot
+                  ? "No products match this stock report."
+                  : "No records match this report. Try changing the store or date range."
+              }
+            />
           </>
         )}
       </Panel>

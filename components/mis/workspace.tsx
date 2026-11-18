@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Account, Database, Row } from "@/lib/mis/types";
-import { pageNames } from "@/lib/mis/navigation";
+import { pageName } from "@/lib/mis/navigation";
 import { Stores, Accounts, MyAccount } from "./accounts";
 import { Products, Catalog } from "./products";
 import { Prices, Rules } from "./prices";
@@ -9,78 +9,85 @@ import { Promotions } from "./promotions";
 import { Concerns } from "./concerns";
 import { Reports, Stat } from "./reports";
 import { Panel } from "./table";
-function Home({
-  db,
-  admin,
-  user,
-}: {
-  db: Database;
-  admin: boolean;
-  user: Account;
-}) {
-  const active = db.sme.some((s) => s.status === "Active");
-  const next = admin
-    ? db.sme.some((s) => s.status === "Pending")
-      ? {
-          path: "stores",
-          title: "Review new stores",
-          text: "Check the store registrations waiting for approval.",
-        }
-      : db.price_request.some((r) => r.status === "Pending Price Review")
-        ? {
-            path: "prices",
-            title: "Review waiting prices",
-            text: "Check the prices that need your decision.",
-          }
-        : {
-            path: "catalog",
-            title: "Set up products",
-            text: "Add the products and pack sizes that stores can choose.",
-          }
-    : !db.sme.length
-      ? {
-          path: "stores",
-          title: "Add your store",
-          text: "Start with your store name, business type, and address.",
-        }
-      : !active
-        ? {
-            path: "stores",
-            title: "Your store is waiting for approval",
-            text: "The Administrator will check your store details before you add products.",
-          }
-        : !db.store_price.length
-          ? {
-              path: "products",
-              title: "Add your first product",
-              text: "Choose a product and pack size from the approved list.",
-            }
-          : db.price_request.some((r) => r.status === "Pending Price Review") &&
-              !db.store_price.some((p) => p.regular_price !== null)
-            ? {
-                path: "prices",
-                title: "Check your price request",
-                text: "Your first price is waiting for review. You can check its status or add a reason.",
-              }
-            : !db.store_price.some((p) => p.regular_price !== null)
-              ? {
-                  path: "prices",
-                  title: "Request a selling price",
-                  text: "Send your price for approval. Approved prices appear in the product list.",
-                }
-              : {
-                  path: "stock",
-                  title: "Update your stock",
-                  text: "Record stock received, items sold, or changes to your stock count.",
-                };
+function nextTask(db: Database, admin: boolean, waitingPrices: number) {
+  if (admin) {
+    if (db.sme.some((store) => store.status === "Pending"))
+      return {
+        path: "stores",
+        title: "Review new stores",
+        text: "Check the store registrations waiting for approval.",
+      };
+    if (waitingPrices)
+      return {
+        path: "prices",
+        title: "Review price requests",
+        text: "Check the prices that need a decision.",
+      };
+    if (!db.store_product.length)
+      return {
+        path: "catalog",
+        title: "Open the product catalog",
+        text: "Add products and pack sizes for stores to choose from.",
+      };
+    return {
+      path: "reports",
+      title: "View sales and stock reports",
+      text: "No stores or prices are waiting for approval.",
+    };
+  }
+
+  if (!db.sme.length)
+    return {
+      path: "stores",
+      title: "Add your store",
+      text: "Enter your store name, business type, and address.",
+    };
+  if (!db.sme.some((store) => store.status === "Active"))
+    return {
+      path: "stores",
+      title: "Check your store status",
+      text: "You can add products once an Administrator activates your store.",
+    };
+  if (!db.store_price.some((price) => price.status === "Active"))
+    return {
+      path: "products",
+      title: "Add a product",
+      text: "Choose a product and pack size from the shared catalog.",
+    };
+  if (
+    db.store_price.some(
+      (price) => price.status === "Active" && price.regular_price !== null,
+    )
+  )
+    return {
+      path: "stock",
+      title: "Record a stock change",
+      text: "Record stock received, items sold, or changes to your stock count.",
+    };
+  if (waitingPrices)
+    return {
+      path: "prices",
+      title: "Check your price request",
+      text: "See whether your price is approved or needs more information.",
+    };
+  return {
+    path: "prices",
+    title: "Request a selling price",
+    text: "Approved selling prices appear in the public catalog.",
+  };
+}
+
+function Home({ db, role }: { db: Database; role: Account["role"] }) {
+  const admin = role === "Administrator";
+  const waitingPrices = db.price_request.filter(
+    (request) => request.status === "Pending Price Review",
+  ).length;
+  const next = nextTask(db, admin, waitingPrices);
   return (
     <>
-      <Panel
-        title={`Hello, ${user.full_name.split(" ")[0]}.`}
-        description={next.text}
-      >
+      <Panel title="Next step" description={next.text}>
         <Link className="button" href={`/workspace/${next.path}`}>
-          {next.title} →
+          {next.title}
         </Link>
       </Panel>
       {(admin || db.sme.length > 0) && (
@@ -95,11 +102,7 @@ function Home({
           />
           <Stat
             title="Prices waiting for review"
-            value={String(
-              db.price_request.filter(
-                (r) => r.status === "Pending Price Review",
-              ).length,
-            )}
+            value={String(waitingPrices)}
           />
           <Stat
             title="Low stock"
@@ -115,35 +118,25 @@ function Home({
         <div className="quick-links">
           {(admin
             ? [
-                ["stores", "Review stores", "Approve new store registrations."],
-                [
-                  "prices",
-                  "Review prices",
-                  "Check prices that need a decision.",
-                ],
-                [
-                  "concerns",
-                  "Read price reports",
-                  "Check reported price problems.",
-                ],
-                [
-                  "reports",
-                  "View reports",
-                  "See store, sales, and stock records.",
-                ],
+                ["stores", "Approve new store registrations."],
+                ["prices", "Check prices that need a decision."],
+                ["concerns", "Check reported price problems."],
+                ["reports", "See store, sales, and stock records."],
               ]
             : [
-                ["products", "Products", "Add products and choose pack sizes."],
-                ["prices", "Prices", "Request or check a selling price."],
-                ["stock", "Stock", "Record stock received and items sold."],
-                ["reports", "Reports", "See sales, costs, and stock levels."],
+                ["products", "Add products and choose pack sizes."],
+                ["prices", "Request or check a selling price."],
+                ["stock", "Record stock received and items sold."],
+                ["reports", "See sales, costs, and stock levels."],
               ]
-          ).map(([path, title, text]) => (
-            <Link key={path} href={`/workspace/${path}`}>
-              <span>{title} →</span>
-              <p>{text}</p>
-            </Link>
-          ))}
+          )
+            .filter(([path]) => path !== next.path)
+            .map(([path, text]) => (
+              <Link key={path} href={`/workspace/${path}`}>
+                <span>{pageName(role, path)}</span>
+                <p>{text}</p>
+              </Link>
+            ))}
         </div>
       </Panel>
     </>
@@ -186,14 +179,10 @@ export function WorkspacePage({
   return (
     <>
       <div className="page-heading">
-        <h1>
-          {user.role === "Customer" && section === "concerns"
-            ? "My price reports"
-            : pageNames[section]}
-        </h1>
+        <h1>{pageName(user.role, section)}</h1>
       </div>
       {section === "overview" ? (
-        <Home db={db} admin={props.admin} user={user} />
+        <Home db={db} role={user.role} />
       ) : (
         screens[section]
       )}

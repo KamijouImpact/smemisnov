@@ -14,21 +14,83 @@ import {
 } from "./fields";
 import { date, find, label, peso } from "@/lib/mis/types";
 export function Products({ db, admin }: Props) {
+  const activeStores = db.sme.filter((s) => s.status === "Active");
+  const availableUnits = db.product_unit.filter((unit) => {
+    const variation = find(db, "product_variation", unit.variation_id);
+    const product = find(db, "product", variation.product_id);
+    return (
+      unit.status === "Active" &&
+      variation.status === "Active" &&
+      product.status === "Active" &&
+      (!product.brand_id ||
+        find(db, "brand", product.brand_id).status === "Active")
+    );
+  });
+  const catalog = { ...db, product_unit: availableUnits };
+  const pendingRequests = db.product_request.filter(
+    (r) => r.status === "Pending Product Review",
+  );
+  const editableListings = db.store_price.filter((r) => {
+    const store = find(db, "store_product", r.store_product_id).sme_id;
+    return activeStores.some((s) => s.sme_id === store);
+  });
   return (
     <>
-      {!admin && !db.sme.some((s) => s.status === "Active") && (
+      {!admin && activeStores.length === 0 && (
         <p className="notice">
-          Add a store and wait for approval before adding products.{" "}
-          <Link href="/workspace/stores">Go to My stores →</Link>
+          {db.sme.length
+            ? "An active store is required to add products."
+            : "Register a store and wait for approval before adding products."}{" "}
+          <Link href="/workspace/stores">Go to My stores</Link>
         </p>
       )}
-      <Panel
-        collapsible={admin}
-        title="Store products"
-        description="Pieces and boxes of the same product share one stock count."
-      >
+      {!admin && activeStores.length > 0 && (
+        <div className="two-columns">
+          <Panel title="Add a product">
+            {availableUnits.length > 0 ? (
+              <ActionForm
+                action="list_unit"
+                fields={[storeField(db), unitField(catalog)]}
+                submit="Add to store"
+              />
+            ) : (
+              <p className="muted-text">
+                The catalog has no available pack sizes. Request the product to
+                get it reviewed.
+              </p>
+            )}
+          </Panel>
+          <Panel
+            collapsible
+            open={availableUnits.length === 0}
+            title="Product not listed?"
+            description="Include the brand, size, and quantity per pack so the Administrator can match it."
+          >
+            <ActionForm
+              action="product_request"
+              fields={[
+                storeField(db),
+                area("requested_details", "Product details"),
+              ]}
+              submit="Send product request"
+            />
+          </Panel>
+        </div>
+      )}
+      <Panel collapsible={admin} title="Store products">
+        {!admin &&
+          editableListings.some(
+            (listing) =>
+              listing.status === "Active" && listing.regular_price === null,
+          ) && (
+            <p className="notice">
+              Products need an approved price before customers can see them.{" "}
+              <Link href="/workspace/prices">Open Price requests</Link>
+            </p>
+          )}
         <Table
           rows={db.store_price}
+          empty="No products have been added to a store yet."
           columns={[
             {
               key: "store_price_id",
@@ -43,37 +105,20 @@ export function Products({ db, admin }: Props) {
             {
               key: "status",
               label: "Status",
-              render: (r) => <Status value={r.status} />,
+              render: (r) => (
+                <Status
+                  value={
+                    r.status === "Active" && r.regular_price === null
+                      ? "Needs approved price"
+                      : r.status
+                  }
+                />
+              ),
             },
           ]}
         />
       </Panel>
-      {!admin && db.sme.some((s) => s.status === "Active") && (
-        <div className="two-columns">
-          <Panel title="Add a product">
-            <ActionForm
-              action="list_unit"
-              fields={[storeField(db), unitField(db)]}
-              submit="Add to store"
-            />
-          </Panel>
-          <Panel
-            collapsible
-            title="Product not listed?"
-            description="Tell us the brand, size, and pack quantity. The Administrator will check the details."
-          >
-            <ActionForm
-              action="product_request"
-              fields={[
-                storeField(db),
-                area("requested_details", "Product details"),
-              ]}
-              submit="Send product request"
-            />
-          </Panel>
-        </div>
-      )}
-      {!admin && db.sme.some((s) => s.status === "Active") && (
+      {!admin && editableListings.length > 0 && (
         <Panel collapsible title="Hide or show a product">
           <ActionForm
             action="listing_status"
@@ -81,20 +126,26 @@ export function Products({ db, admin }: Props) {
               select(
                 "store_price_id",
                 "Listing",
-                db.store_price,
+                editableListings,
                 "store_price_id",
                 (r) => label(db, r.store_price_id),
               ),
-              choice("status", "Status", ["Active", "Archived"]),
+              {
+                name: "status",
+                label: "Visibility",
+                options: [
+                  { value: "Active", label: "Show listing" },
+                  { value: "Archived", label: "Hide listing" },
+                ],
+              },
             ]}
+            submit="Save listing visibility"
           />
         </Panel>
       )}
       <Panel
         collapsible
-        open={db.product_request.some(
-          (r) => r.status === "Pending Product Review",
-        )}
+        open={pendingRequests.length > 0}
         title="Product requests"
       >
         <Table
@@ -121,10 +172,10 @@ export function Products({ db, admin }: Props) {
           ]}
         />
       </Panel>
-      {admin && (
+      {admin && pendingRequests.length > 0 && (
         <Panel
           title="Review a product request"
-          description="Choose the matching product and pack size. If it is missing, add it below first."
+          description="To approve, select the exact matching pack size. Create it in the catalog first if it’s missing."
         >
           <ActionForm
             action="review_product"
@@ -132,15 +183,14 @@ export function Products({ db, admin }: Props) {
               select(
                 "product_request_id",
                 "Request",
-                db.product_request.filter(
-                  (r) => r.status === "Pending Product Review",
-                ),
+                pendingRequests,
                 "product_request_id",
                 (r) => `#${r.product_request_id} · ${r.requested_details}`,
               ),
               ...decisionFields,
-              unitField(db, false),
+              unitField(catalog, false),
             ]}
+            submit="Save decision"
           />
         </Panel>
       )}
@@ -151,9 +201,8 @@ export function Catalog({ db }: Props) {
   return (
     <>
       <p className="notice">
-        Open the section you need. Start with a category and brand, then add a
-        product, its options, and pack sizes. A draft becomes active when it has
-        an active option and pack size.
+        Add a category, then a product name, option, and pack size. A product
+        stays in draft until it has an active option and pack size.
       </p>
       <div className="two-columns">
         <Panel collapsible open={db.category.length === 0} title="Categories">
@@ -236,10 +285,19 @@ export function Catalog({ db }: Props) {
       <Panel
         collapsible
         title="Product options"
-        description="Add details such as size, color, or flavor. Fill in only what applies."
+        description="Create a separate option for each variation that needs its own stock count."
       >
         <ActionForm
           action="variation"
+          extraFields={[
+            "size",
+            "color",
+            "flavor",
+            "capacity",
+            "net_quantity",
+            "net_unit",
+            "other_details",
+          ]}
           fields={[
             select(
               "product_id",
@@ -269,20 +327,21 @@ export function Catalog({ db }: Props) {
             area("other_details", "Other details", false),
             {
               name: "allow_price_reference",
-              label: "Compare matching prices automatically?",
+              label: "Allow exact price comparisons?",
               options: [
                 {
                   value: "false",
-                  label: "No — Administrator checks each price",
+                  label: "No, review prices manually",
                 },
                 {
                   value: "true",
-                  label: "Yes — the same product can be matched exactly",
+                  label: "Yes, exact matches can be compared",
                 },
               ],
               value: "false",
             },
           ]}
+          submit="Save product option"
         />
         <Table
           rows={db.product_variation}
@@ -316,7 +375,7 @@ export function Catalog({ db }: Props) {
       <Panel
         collapsible
         title="Pack sizes"
-        description="For example: piece = 1, box of 24 = 24. Both use the same stock count."
+        description="Enter how many stock units each pack contains. For example, a box of 24 contains 24 units."
       >
         <ActionForm
           action="unit"
@@ -330,14 +389,10 @@ export function Catalog({ db }: Props) {
                 `${find(db, "product", r.product_id).product_name} · ${r.variation_name} · ${r.size || ""} ${r.color || ""}`,
             ),
             text("unit_name", "Sold as (piece, box, etc.)"),
-            num(
-              "stock_units",
-              "Number of pieces or pairs in this pack",
-              true,
-              1,
-            ),
+            num("stock_units", "Stock units per pack", true, 1),
             text("gtin", "Barcode (optional)", false),
           ]}
+          submit="Save pack size"
         />
         <Table
           rows={db.product_unit}
@@ -371,8 +426,16 @@ export function Catalog({ db }: Props) {
               help: "Choose the record type, then use its ID from the table above.",
             },
             num("id", "Record number", true, 1),
-            choice("status", "Status", ["Active", "Archived"]),
+            {
+              name: "status",
+              label: "Catalog visibility",
+              options: [
+                { value: "Active", label: "Restore to catalog" },
+                { value: "Archived", label: "Hide from catalog" },
+              ],
+            },
           ]}
+          submit="Save visibility"
         />
       </Panel>
       <Products db={db} admin />

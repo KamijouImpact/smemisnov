@@ -1,29 +1,64 @@
 "use client";
 import { simpleText } from "@/lib/mis/words";
+import Link from "next/link";
 import { useState } from "react";
 import { ActionForm } from "./form";
 import { Panel, Table, Status } from "./table";
 import { Props, area, num, select, stockField } from "./fields";
 import { Field, date, find, label, peso } from "@/lib/mis/types";
 export function Stock({ db, admin }: Props) {
-  const [product, setProduct] = useState("");
-  const [type, setType] = useState("Restock");
+  const activeProducts = db.store_product.filter(
+    (r) =>
+      r.status === "Active" && find(db, "sme", r.sme_id).status === "Active",
+  );
+  const onlyProduct =
+    activeProducts.length === 1
+      ? String(activeProducts[0].store_product_id)
+      : "";
+  const [product, setProduct] = useState(onlyProduct);
+  const hasMovements = (id: string) =>
+    db.stock_transaction.some((t) => String(t.store_product_id) === id);
+  const [type, setType] = useState(() =>
+    onlyProduct && !hasMovements(onlyProduct) ? "Opening" : "Restock",
+  );
   const sp = find(db, "store_product", product);
+  const transactions = db.stock_transaction.filter(
+    (t) => String(t.store_product_id) === product,
+  );
+  const reversedTransactions = new Set(
+    transactions
+      .filter((t) => t.transaction_type === "Reversal")
+      .map((t) => t.correction_of_id),
+  );
+  const salableUnits = new Set(
+    db.store_price
+      .filter(
+        (r) =>
+          String(r.store_product_id) === product &&
+          r.status === "Active" &&
+          r.regular_price !== null,
+      )
+      .map((r) => r.unit_id),
+  );
   const units = db.product_unit.filter(
-    (u) => u.variation_id === sp.variation_id && u.status === "Active",
+    (u) =>
+      u.variation_id === sp.variation_id &&
+      u.status === "Active" &&
+      (type !== "Sale" || salableUnits.has(u.unit_id)),
   );
   const unit = select(
     "unit_id",
-    "Sold or received as",
+    "Pack size",
     units,
     "unit_id",
-    (u) => `${u.unit_name} · ${u.stock_units} stock units`,
+    (u) =>
+      `${u.unit_name} · ${u.stock_units} ${find(db, "product_variation", sp.variation_id).stock_unit}`,
   );
   const fields: Field[] =
     type === "Opening" || type === "Restock"
       ? [
           unit,
-          num("entered_quantity", "Quantity", true, 1),
+          num("entered_quantity", "Number received", true, 1),
           num("total_purchase_cost", "Total purchase cost", false, 0, "0.01"),
         ]
       : type === "Sale"
@@ -41,15 +76,10 @@ export function Stock({ db, admin }: Props) {
               select(
                 "correction_of_id",
                 "Entry to undo",
-                db.stock_transaction.filter(
+                transactions.filter(
                   (t) =>
-                    String(t.store_product_id) === product &&
                     t.transaction_type !== "Reversal" &&
-                    !db.stock_transaction.some(
-                      (r) =>
-                        r.transaction_type === "Reversal" &&
-                        r.correction_of_id === t.stock_transaction_id,
-                    ),
+                    !reversedTransactions.has(t.stock_transaction_id),
                 ),
                 "stock_transaction_id",
                 (t) =>
@@ -71,7 +101,7 @@ export function Stock({ db, admin }: Props) {
                 },
                 num(
                   "unit_purchase_cost",
-                  "Correct purchase cost per piece or pair",
+                  "Corrected cost per stock unit",
                   false,
                   0,
                   "0.000001",
@@ -79,9 +109,7 @@ export function Stock({ db, admin }: Props) {
                 select(
                   "correction_of_id",
                   "Related entry (optional)",
-                  db.stock_transaction.filter(
-                    (t) => String(t.store_product_id) === product,
-                  ),
+                  transactions,
                   "stock_transaction_id",
                   (t) => `#${t.stock_transaction_id} · ${t.transaction_type}`,
                   false,
@@ -94,74 +122,38 @@ export function Stock({ db, admin }: Props) {
               ];
   return (
     <>
-      <Panel
-        title="Current stock"
-        description="Check these counts against the stock in your store."
-      >
-        <Table
-          rows={db.store_product}
-          columns={[
-            {
-              key: "store_product_id",
-              label: "Product",
-              render: (r) => label(db, r.store_product_id, "stock"),
-            },
-            {
-              key: "stock_quantity",
-              label: "In stock",
-              render: (r) =>
-                `${r.stock_quantity} ${find(db, "product_variation", r.variation_id).stock_unit}`,
-            },
-            { key: "low_stock_level", label: "Warning level" },
-            {
-              key: "latest_unit_cost",
-              label: "Latest purchase cost per piece or pair",
-              render: (r) => peso(r.latest_unit_cost),
-            },
-            {
-              key: "warning",
-              label: "Stock status",
-              render: (r) => (
-                <Status
-                  value={
-                    Number(r.stock_quantity) <= Number(r.low_stock_level)
-                      ? "Low stock"
-                      : "Available"
-                  }
-                />
-              ),
-            },
-          ]}
-        />
-      </Panel>
-      {!admin && (
-        <>
+      {!admin &&
+        (activeProducts.length > 0 ? (
           <Panel
             title="Update stock"
-            description="Choose a product and what happened to its stock."
+            description="Pack quantities convert to the product’s shared stock count."
           >
             <div className="fields stock-picker">
               <label>
                 <span>Store product</span>
                 <select
                   value={product}
-                  onChange={(e) => setProduct(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setProduct(next);
+                    setType(
+                      next && !hasMovements(next) ? "Opening" : "Restock",
+                    );
+                  }}
                 >
                   <option value="">Choose…</option>
-                  {db.store_product
-                    .filter((r) => r.status === "Active")
-                    .map((r) => (
-                      <option
-                        key={String(r.store_product_id)}
-                        value={String(r.store_product_id)}
-                      >
-                        {label(db, r.store_product_id, "stock")}
-                      </option>
-                    ))}
+                  {activeProducts.map((r) => (
+                    <option
+                      key={String(r.store_product_id)}
+                      value={String(r.store_product_id)}
+                    >
+                      {label(db, r.store_product_id, "stock")}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label>
-                <span>Movement</span>
+                <span>What happened?</span>
                 <select value={type} onChange={(e) => setType(e.target.value)}>
                   {[
                     "Opening",
@@ -180,7 +172,13 @@ export function Stock({ db, admin }: Props) {
                 </select>
               </label>
             </div>
-            {product ? (
+            {product && type === "Sale" && units.length === 0 && (
+              <p className="notice">
+                Set an approved price for a pack size before recording a sale.{" "}
+                <Link href="/workspace/prices">Open Price requests</Link>
+              </p>
+            )}
+            {product && (type !== "Sale" || units.length > 0) && (
               <ActionForm
                 key={`${product}-${type}`}
                 action="stock"
@@ -188,25 +186,64 @@ export function Stock({ db, admin }: Props) {
                 fields={fields}
                 submit="Save stock entry"
               />
-            ) : (
-              <p className="muted-text">Choose a store product to begin.</p>
             )}
           </Panel>
-          <Panel collapsible title="Set a low-stock warning">
-            <ActionForm
-              action="low_stock"
-              fields={[
-                stockField(db),
-                num("low_stock_level", "Warn me when stock reaches"),
-              ]}
-            />
-          </Panel>
-        </>
+        ) : (
+          <p className="notice">
+            Add a product to an active store before recording stock.{" "}
+            <Link href="/workspace/products">Open My products</Link>
+          </p>
+        ))}
+      <Panel title="Current stock">
+        <Table
+          rows={db.store_product}
+          columns={[
+            {
+              key: "store_product_id",
+              label: "Product",
+              render: (r) => label(db, r.store_product_id, "stock"),
+            },
+            {
+              key: "stock_quantity",
+              label: "In stock",
+              render: (r) =>
+                `${r.stock_quantity} ${find(db, "product_variation", r.variation_id).stock_unit}`,
+            },
+            { key: "low_stock_level", label: "Warning level" },
+            {
+              key: "latest_unit_cost",
+              label: "Latest cost per stock unit",
+              render: (r) => peso(r.latest_unit_cost),
+            },
+            {
+              key: "warning",
+              label: "Stock status",
+              render: (r) => (
+                <Status
+                  value={
+                    Number(r.stock_quantity) <= Number(r.low_stock_level)
+                      ? "Low stock"
+                      : "Available"
+                  }
+                />
+              ),
+            },
+          ]}
+        />
+      </Panel>
+      {!admin && activeProducts.length > 0 && (
+        <Panel collapsible title="Set a low-stock warning">
+          <ActionForm
+            action="low_stock"
+            fields={[
+              stockField({ ...db, store_product: activeProducts }),
+              num("low_stock_level", "Warn at or below this stock count"),
+            ]}
+            submit="Save warning level"
+          />
+        </Panel>
       )}
-      <Panel
-        title="Stock history"
-        description="All stock changes are kept here, including adjustments and undone entries."
-      >
+      <Panel collapsible title="Stock history">
         <Table
           compact={[
             "recorded_at",

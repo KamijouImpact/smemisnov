@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { ActionForm } from "./form";
 import { Panel, Table, Status } from "./table";
 import { Props, area, choice, num, select, text } from "./fields";
@@ -13,7 +13,9 @@ export function Concerns({
 }: { customer: boolean; publicRows: Row[]; requestedItem?: string } & Props) {
   const [selected, setSelected] = useState(requestedItem || "");
   const listing = publicRows.find((r) => String(r.store_price_id) === selected);
-  const openReports = db.customer_report.filter((r) => r.status !== "Closed");
+  const reports = [...db.customer_report].reverse();
+  const openReports = reports.filter((r) => r.status !== "Closed");
+  const closedReports = reports.filter((r) => r.status === "Closed");
   const awaitingRequest = openReports.filter(
     (r) => !r.owner_response_requested_at && !r.owner_response,
   );
@@ -31,12 +33,68 @@ export function Concerns({
       "customer_report_id",
       (r) => `#${r.customer_report_id} · ${r.description}`,
     );
+  const columns: ComponentProps<typeof Table>["columns"] = [
+    { key: "customer_report_id", label: "Report" },
+    {
+      key: "store_price_id",
+      label: "Product",
+      render: (r) => {
+        if (find(db, "store_price", r.store_price_id).store_price_id)
+          return label(db, r.store_price_id);
+        const p = publicRows.find((p) => p.store_price_id === r.store_price_id);
+        return p
+          ? `${p.store_name} · ${p.product_name} · ${p.variation_name} · ${p.unit_name}`
+          : `Listing #${r.store_price_id}`;
+      },
+    },
+    {
+      key: "listed_price",
+      label: "Listed / seen",
+      render: (r) => peso(r.listed_price),
+    },
+    {
+      key: "charged_price",
+      label: "Charged",
+      render: (r) => peso(r.charged_price),
+    },
+    {
+      key: "transaction_at",
+      label: "When",
+      render: (r) => date(r.transaction_at),
+    },
+    { key: "description", label: "What happened" },
+    { key: "evidence_reference", label: "Evidence reference" },
+    {
+      key: "owner_response_requested_at",
+      label: "Owner follow-up",
+      render: (r) => {
+        if (r.owner_response)
+          return `Response received · ${date(r.responded_at)}`;
+        if (r.status === "Closed") return "Closed without a response";
+        return r.owner_response_requested_at
+          ? `Response requested · ${date(r.owner_response_requested_at)}`
+          : "Response not requested";
+      },
+    },
+    { key: "owner_response", label: "Owner response" },
+    {
+      key: "status",
+      label: "Status",
+      render: (r) => <Status value={r.status} />,
+    },
+    { key: "outcome", label: "Result" },
+    { key: "outcome_details", label: "Review details" },
+    {
+      key: "no_response_reason",
+      label: "Reason for closing without a response",
+    },
+  ];
   return (
     <>
       {customer && (
         <Panel
           title="Report a price problem"
-          description="Choose the exact product and package. Tell us what you saw or were charged. The Administrator reviews the available evidence and can request a response from the store Owner."
+          description="Choose the exact product and package you saw. The Administrator can ask the store Owner for a response."
         >
           <label className="standalone-field">
             <span>Store product</span>
@@ -84,80 +142,28 @@ export function Concerns({
             />
           ) : (
             <p className="muted-text">
-              Select a listed product to make a report.
+              {publicRows.length
+                ? "Select a listed product to make a report."
+                : "No products are listed right now."}
             </p>
           )}
         </Panel>
       )}
-      <Panel title={customer ? "My price reports" : "Price reports"}>
+      <Panel title={customer ? "My open price reports" : "Open price reports"}>
         <Table
           compact={[
             "store_price_id",
             "description",
             "status",
             "owner_response_requested_at",
-            "owner_response",
-            "outcome",
           ]}
-          rows={[...db.customer_report].reverse()}
-          columns={[
-            { key: "customer_report_id", label: "Report" },
-            {
-              key: "store_price_id",
-              label: "Product",
-              render: (r) => {
-                if (find(db, "store_price", r.store_price_id).store_price_id)
-                  return label(db, r.store_price_id);
-                const p = publicRows.find(
-                  (p) => p.store_price_id === r.store_price_id,
-                );
-                return p
-                  ? `${p.store_name} · ${p.product_name} · ${p.variation_name} · ${p.unit_name}`
-                  : `Listing #${r.store_price_id}`;
-              },
-            },
-            {
-              key: "listed_price",
-              label: "Listed / seen",
-              render: (r) => peso(r.listed_price),
-            },
-            {
-              key: "charged_price",
-              label: "Charged",
-              render: (r) => peso(r.charged_price),
-            },
-            {
-              key: "transaction_at",
-              label: "When",
-              render: (r) => date(r.transaction_at),
-            },
-            { key: "description", label: "What happened" },
-            { key: "evidence_reference", label: "Evidence reference" },
-            {
-              key: "owner_response_requested_at",
-              label: "Owner follow-up",
-              render: (r) => {
-                if (r.owner_response)
-                  return `Response received · ${date(r.responded_at)}`;
-                if (r.status === "Closed") return "Closed without a response";
-                return r.owner_response_requested_at
-                  ? `Response requested · ${date(r.owner_response_requested_at)}`
-                  : "Response not requested";
-              },
-            },
-            { key: "owner_response", label: "Owner response" },
-            {
-              key: "status",
-              label: "Status",
-              render: (r) => <Status value={r.status} />,
-            },
-            { key: "outcome", label: "Result" },
-            { key: "outcome_details", label: "Review details" },
-            {
-              key: "no_response_reason",
-              label: "Reason for closing without a response",
-            },
-          ]}
+          rows={openReports}
+          columns={columns}
+          empty={
+            customer
+              ? "You have no open price reports."
+              : "No open price reports."
+          }
         />
       </Panel>
       {!customer &&
@@ -228,6 +234,17 @@ export function Concerns({
             </Panel>
           )
         ))}
+      <Panel
+        collapsible
+        title={customer ? "My closed price reports" : "Closed price reports"}
+      >
+        <Table
+          compact={["store_price_id", "description", "outcome"]}
+          rows={closedReports}
+          columns={columns}
+          empty="No price reports have been closed."
+        />
+      </Panel>
     </>
   );
 }

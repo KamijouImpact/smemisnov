@@ -1,3 +1,5 @@
+import type { ComponentProps } from "react";
+import Link from "next/link";
 import { ActionForm } from "./form";
 import { Panel, Table, Status } from "./table";
 import {
@@ -10,12 +12,62 @@ import {
 } from "./fields";
 import { date, find, label, peso } from "@/lib/mis/types";
 export function Prices({ db, admin }: Props) {
-  const pending = db.price_request.filter(
-    (r) => r.status === "Pending Price Review",
-  );
+  const sellingOptions = optionField(db);
+  const requests = [...db.price_request].reverse();
+  const pending = requests.filter((r) => r.status === "Pending Price Review");
+  const past = requests.filter((r) => r.status !== "Pending Price Review");
+  const columns: ComponentProps<typeof Table>["columns"] = [
+    { key: "price_request_id", label: "Request" },
+    {
+      key: "store_price_id",
+      label: "Product",
+      render: (r) => label(db, r.store_price_id),
+    },
+    {
+      key: "previous_price",
+      label: "Current price",
+      render: (r) => peso(r.previous_price),
+    },
+    {
+      key: "proposed_price",
+      label: "New price",
+      render: (r) => peso(r.proposed_price),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (r) => <Status value={r.status} />,
+    },
+    { key: "review_reason", label: "Why it needs review" },
+    { key: "owner_reason", label: "Owner’s reason" },
+    { key: "reference_count", label: "Matching stores" },
+    {
+      key: "reference_median",
+      label: "Middle comparison price",
+      render: (r) => peso(r.reference_median),
+    },
+    {
+      key: "allowed_price",
+      label: "Automatic approval limit",
+      render: (r) => peso(r.allowed_price),
+    },
+    { key: "decision_source", label: "Decided by" },
+    { key: "decision_reason", label: "Decision reason" },
+    {
+      key: "submitted_at",
+      label: "Submitted",
+      render: (r) => date(r.submitted_at),
+    },
+  ];
   return (
     <>
-      {!admin && (
+      {!admin && !sellingOptions.options?.length && (
+        <p className="notice">
+          Add a product and pack size to your store before requesting a price.{" "}
+          <Link href="/workspace/products">Open My products</Link>
+        </p>
+      )}
+      {!admin && Boolean(sellingOptions.options?.length) && (
         <Panel
           title="Request a price"
           description="Your current price stays in use until a change is approved. A new product appears after its first price is approved."
@@ -23,7 +75,7 @@ export function Prices({ db, admin }: Props) {
           <ActionForm
             action="submit_price"
             fields={[
-              optionField(db),
+              sellingOptions,
               num("proposed_price", "New selling price", true, 0.01, "0.01"),
               area("owner_reason", "Why this price?", false),
               select(
@@ -43,8 +95,9 @@ export function Prices({ db, admin }: Props) {
         </Panel>
       )}
       <Panel
-        title="Price requests"
-        description="Check the status of each requested price."
+        title={
+          admin ? "Prices waiting for approval" : "Requests waiting for review"
+        }
       >
         <Table
           compact={[
@@ -53,55 +106,17 @@ export function Prices({ db, admin }: Props) {
             "proposed_price",
             "status",
             "review_reason",
-            "decision_reason",
           ]}
-          rows={[...db.price_request].reverse()}
-          columns={[
-            { key: "price_request_id", label: "Request" },
-            {
-              key: "store_price_id",
-              label: "Product",
-              render: (r) => label(db, r.store_price_id),
-            },
-            {
-              key: "previous_price",
-              label: "Current price",
-              render: (r) => peso(r.previous_price),
-            },
-            {
-              key: "proposed_price",
-              label: "New price",
-              render: (r) => peso(r.proposed_price),
-            },
-            {
-              key: "status",
-              label: "Status",
-              render: (r) => <Status value={r.status} />,
-            },
-            { key: "review_reason", label: "Why it needs review" },
-            { key: "owner_reason", label: "Owner’s reason" },
-            { key: "reference_count", label: "Matching stores" },
-            {
-              key: "reference_median",
-              label: "Middle comparison price",
-              render: (r) => peso(r.reference_median),
-            },
-            {
-              key: "allowed_price",
-              label: "Automatic approval limit",
-              render: (r) => peso(r.allowed_price),
-            },
-            { key: "decision_source", label: "Decided by" },
-            { key: "decision_reason", label: "Decision reason" },
-            {
-              key: "submitted_at",
-              label: "Submitted",
-              render: (r) => date(r.submitted_at),
-            },
-          ]}
+          rows={pending}
+          columns={columns}
+          empty={
+            admin
+              ? "No price requests need approval."
+              : "You have no price requests waiting for review."
+          }
         />
       </Panel>
-      {admin ? (
+      {admin && pending.length > 0 ? (
         <Panel
           title="Approve or reject a price"
           description="Check the product, pack size, comparison details, and Owner’s reason before deciding."
@@ -121,7 +136,7 @@ export function Prices({ db, admin }: Props) {
             ]}
           />
         </Panel>
-      ) : pending.length > 0 ? (
+      ) : !admin && pending.length > 0 ? (
         <div className="two-columns">
           <Panel collapsible title="Explain a pending price">
             <ActionForm
@@ -158,6 +173,19 @@ export function Prices({ db, admin }: Props) {
           </Panel>
         </div>
       ) : null}
+      <Panel collapsible title="Past price requests">
+        <Table
+          compact={[
+            "store_price_id",
+            "proposed_price",
+            "status",
+            "decision_reason",
+          ]}
+          rows={past}
+          columns={columns}
+          empty="No completed or withdrawn price requests yet."
+        />
+      </Panel>
       {admin && (
         <Panel
           collapsible
