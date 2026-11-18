@@ -50,7 +50,7 @@ export function navigation(role: Account["role"]) {
       item("products", "My products"),
       item("prices", "Price requests"),
       item("stock", "Stock"),
-      item("stores", "My stores"),
+      item("stores", "My store"),
     ],
     groups: [
       {

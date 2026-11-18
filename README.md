@@ -51,7 +51,7 @@ There are no shared demo passwords or public test accounts in this repository.
 ## First store and product
 
 1. Administrator: add a Category and any Brand, then Product, Variation, and Selling Unit.
-2. Owner: register a store; Administrator activates it.
+2. Owner: register one store. An Administrator activates it. Owners with multiple stores registered before this limit retain access to those stores.
 3. Owner: select the shared selling units or submit Other / Not Listed details.
 4. Owner: record opening stock and submit a selling-price request.
 5. Administrator: review the first price. The approved listing then appears publicly.

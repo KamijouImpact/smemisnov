@@ -39,7 +39,7 @@ export async function workspaceData(
   const byPage: Record<string, string[]> = {
     overview: ["sme", "store_product", "store_price", "price_request"],
     stores: ["sme"],
-    products: [...productTables, "product_request"],
+    products: [...productTables, "category", "product_request"],
     catalog: [...productTables, "category", "product_request"],
     prices: [
       ...productTables,

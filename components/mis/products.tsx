@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ActionForm } from "./form";
+import { AddProduct, type CatalogChoice } from "./add-product";
 import { Panel, Table, Status } from "./table";
 import {
   Props,
@@ -15,18 +16,70 @@ import {
 import { date, find, label, peso } from "@/lib/mis/types";
 export function Products({ db, admin }: Props) {
   const activeStores = db.sme.filter((s) => s.status === "Active");
-  const availableUnits = db.product_unit.filter((unit) => {
+  const stores = activeStores.map((store) => ({
+    value: String(store.sme_id),
+    label: String(store.store_name),
+  }));
+  const availableUnits = db.product_unit.flatMap((unit) => {
+    if (unit.status !== "Active") return [];
     const variation = find(db, "product_variation", unit.variation_id);
     const product = find(db, "product", variation.product_id);
-    return (
-      unit.status === "Active" &&
-      variation.status === "Active" &&
+    const brand = find(db, "brand", product.brand_id);
+    const category = find(db, "category", product.category_id);
+    return variation.status === "Active" &&
       product.status === "Active" &&
-      (!product.brand_id ||
-        find(db, "brand", product.brand_id).status === "Active")
-    );
+      category.status === "Active" &&
+      (!product.brand_id || brand.status === "Active")
+      ? [{ unit, variation, product, brand }]
+      : [];
   });
-  const catalog = { ...db, product_unit: availableUnits };
+  const choices = new Map<string, CatalogChoice>();
+  const addedUnits: Record<string, string[]> = {};
+  if (!admin && activeStores.length) {
+    for (const { unit, variation, product, brand } of availableUnits) {
+      const value = String(variation.variation_id);
+      let choice = choices.get(value);
+      if (!choice) {
+        choice = {
+          value,
+          label: [
+            brand.brand_name,
+            product.product_name,
+            product.model_or_style,
+            variation.variation_name === "Standard"
+              ? null
+              : variation.variation_name,
+            variation.size,
+            variation.color,
+            variation.flavor,
+            variation.capacity,
+            variation.net_quantity
+              ? `${variation.net_quantity} ${variation.net_unit}`
+              : null,
+            variation.condition === "Used" ? "Used" : null,
+            variation.other_details,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          packages: [],
+        };
+        choices.set(value, choice);
+      }
+      choice.packages.push({
+        value: String(unit.unit_id),
+        label: `${unit.unit_name} (${unit.stock_units} ${variation.stock_unit})`,
+      });
+    }
+    for (const listing of db.store_price) {
+      if (listing.status !== "Active") continue;
+      const store = find(db, "store_product", listing.store_product_id);
+      const storeId = String(store.sme_id);
+      (addedUnits[storeId] ??= []).push(String(listing.unit_id));
+    }
+  }
+  const catalogChoices = [...choices.values()].sort((a, b) =>
+    a.label.localeCompare(b.label),
+  );
   const pendingRequests = db.product_request.filter(
     (r) => r.status === "Pending Product Review",
   );
@@ -41,41 +94,40 @@ export function Products({ db, admin }: Props) {
           {db.sme.length
             ? "An active store is required to add products."
             : "Register a store and wait for approval before adding products."}{" "}
-          <Link href="/workspace/stores">Go to My stores</Link>
+          <Link href="/workspace/stores">Open My store</Link>
         </p>
       )}
       {!admin && activeStores.length > 0 && (
-        <div className="two-columns">
-          <Panel title="Add a product">
-            {availableUnits.length > 0 ? (
-              <ActionForm
-                action="list_unit"
-                fields={[storeField(db), unitField(catalog)]}
-                submit="Add to store"
-              />
-            ) : (
-              <p className="muted-text">
-                The catalog has no available pack sizes. Request the product to
-                get it reviewed.
-              </p>
-            )}
+        <>
+          <Panel
+            title="Add a product"
+            description="Find the product and choose the pack size you sell. You can request a price and record stock after adding it."
+          >
+            <AddProduct
+              stores={stores}
+              choices={catalogChoices}
+              addedUnits={addedUnits}
+            />
           </Panel>
           <Panel
             collapsible
-            open={availableUnits.length === 0}
+            open={catalogChoices.length === 0}
             title="Product not listed?"
             description="Include the brand, size, and quantity per pack so the Administrator can match it."
           >
             <ActionForm
               action="product_request"
+              hidden={
+                stores.length === 1 ? { sme_id: stores[0].value } : undefined
+              }
               fields={[
-                storeField(db),
+                ...(stores.length > 1 ? [storeField(db)] : []),
                 area("requested_details", "Product details"),
               ]}
               submit="Send product request"
             />
           </Panel>
-        </div>
+        </>
       )}
       <Panel collapsible={admin} title="Store products">
         {!admin &&
@@ -85,7 +137,8 @@ export function Products({ db, admin }: Props) {
           ) && (
             <p className="notice">
               Products need an approved price before customers can see them.{" "}
-              <Link href="/workspace/prices">Open Price requests</Link>
+              <Link href="/workspace/prices">Request a price</Link> or{" "}
+              <Link href="/workspace/stock">record starting stock</Link>.
             </p>
           )}
         <Table
@@ -188,7 +241,10 @@ export function Products({ db, admin }: Props) {
                 (r) => `#${r.product_request_id} · ${r.requested_details}`,
               ),
               ...decisionFields,
-              unitField(catalog, false),
+              unitField(
+                { ...db, product_unit: availableUnits.map(({ unit }) => unit) },
+                false,
+              ),
             ]}
             submit="Save decision"
           />

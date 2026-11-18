@@ -26,6 +26,12 @@ BEGIN
  box:=(public.mis_command('unit',jsonb_build_object('variation_id',var,'unit_name','box of 24','stock_units',24)) ->>'id')::bigint;
  PERFORM set_config('request.jwt.claim.sub',owner_a::text,true);
  store_a:=(public.mis_command('store','{"store_name":"Test A","business_type":"General retail","address":"Test"}') ->>'id')::bigint;
+ BEGIN
+  PERFORM public.mis_command('store','{"store_name":"Duplicate","business_type":"General retail","address":"Test"}');
+  RAISE EXCEPTION 'Expected second store registration refusal';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM<>'This Owner already has a registered store.' THEN RAISE; END IF;
+ END;
  PERFORM set_config('request.jwt.claim.sub',owner_b::text,true);
  store_b:=(public.mis_command('store','{"store_name":"Test B","business_type":"General retail","address":"Test"}') ->>'id')::bigint;
  PERFORM set_config('request.jwt.claim.sub',owner_c::text,true);

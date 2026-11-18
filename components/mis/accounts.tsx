@@ -12,10 +12,10 @@ export function Stores({ db, admin }: Props) {
     : db.sme;
   return (
     <>
-      {!admin ? (
+      {!admin && stores.length === 0 && (
         <Panel
           title="Add a store"
-          description="You can add products after the Administrator approves your store."
+          description="Each Owner account can register one store. You can add products after approval."
         >
           <ActionForm
             action="store"
@@ -27,34 +27,41 @@ export function Stores({ db, admin }: Props) {
             submit="Register store"
           />
         </Panel>
-      ) : (
-        stores.length > 0 && (
-          <Panel title="Approve or pause a store">
-            <ActionForm
-              action="store_status"
-              fields={[
-                select(
-                  "sme_id",
-                  "Store",
-                  stores,
-                  "sme_id",
-                  (s) => `${s.store_name} · ${s.status}`,
-                ),
-                {
-                  name: "status",
-                  label: "Decision",
-                  options: [
-                    { value: "Active", label: "Approve or reactivate" },
-                    { value: "Inactive", label: "Pause access" },
-                  ],
-                },
-              ]}
-              submit="Save store status"
-            />
-          </Panel>
-        )
       )}
-      <Panel title={admin ? "Registered stores" : "My registered stores"}>
+      {admin && stores.length > 0 && (
+        <Panel title="Approve or pause a store">
+          <ActionForm
+            action="store_status"
+            fields={[
+              select(
+                "sme_id",
+                "Store",
+                stores,
+                "sme_id",
+                (s) => `${s.store_name} · ${s.status}`,
+              ),
+              {
+                name: "status",
+                label: "Decision",
+                options: [
+                  { value: "Active", label: "Approve or reactivate" },
+                  { value: "Inactive", label: "Pause access" },
+                ],
+              },
+            ]}
+            submit="Save store status"
+          />
+        </Panel>
+      )}
+      <Panel
+        title={
+          admin
+            ? "Registered stores"
+            : stores.length > 1
+              ? "My registered stores"
+              : "Store details"
+        }
+      >
         <Table
           rows={stores}
           empty={
