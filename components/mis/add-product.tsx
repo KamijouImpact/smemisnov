@@ -11,31 +11,24 @@ export type CatalogChoice = Option & {
   storeIds: string[];
 };
 
-const stockUnits = ["piece", "pair", "bottle", "can", "bag", "sachet", "roll"];
 const packCounts = ["1", "2", "3", "4", "6", "10", "12", "24"];
-const commonCategories = [
-  "Food",
-  "Beverages",
-  "Household supplies",
-  "Personal care",
-  "Clothing",
-  "Electronics",
-  "School and office supplies",
-];
 
 export type StoreProductSuggestions = {
   names: string[];
   brands: string[];
   variants: string[];
-  categories: string[];
 };
 
 export function AddProduct({
   stores,
   suggestions,
+  categories,
+  stockUnits,
 }: {
   stores: Option[];
   suggestions: Record<string, StoreProductSuggestions>;
+  categories: string[];
+  stockUnits: string[];
 }) {
   const [store, setStore] = useState("");
   const storeId = stores.length === 1 ? stores[0].value : store;
@@ -74,16 +67,7 @@ export function AddProduct({
               ...text("product_name", "Product name"),
               suggestions: storeProducts?.names,
             },
-            {
-              ...text("category_name", "Category", false),
-              suggestions: [
-                ...new Set([
-                  ...(storeProducts?.categories ?? []),
-                  ...commonCategories,
-                ]),
-              ],
-              help: "Choose a suggested category or enter your own.",
-            },
+            choice("category_name", "Product category", categories),
             {
               ...text("brand", "Brand", false),
               suggestions: storeProducts?.brands,
@@ -93,9 +77,8 @@ export function AddProduct({
               suggestions: storeProducts?.variants,
             },
             {
-              ...text("stock_unit", "Stock unit", false),
+              ...choice("stock_unit", "Stock unit", stockUnits),
               value: "piece",
-              suggestions: stockUnits,
             },
             {
               ...num("pack_count", "Stock units per pack", false, 1),

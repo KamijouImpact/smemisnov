@@ -38,8 +38,18 @@ export async function workspaceData(
   ];
   const byPage: Record<string, string[]> = {
     overview: ["sme", "store_product", "store_price", "price_request"],
-    stores: ["sme"],
-    products: [...productTables, "category", "product_request"],
+    stores: [
+      "sme",
+      ...(role === "Owner" ? ["catalog_choice", "catalog_choice_request"] : []),
+    ],
+    products: [
+      ...productTables,
+      "category",
+      "product_request",
+      "catalog_choice",
+      "catalog_choice_request",
+    ],
+    "choice-requests": ["catalog_choice_request"],
     catalog: [...productTables, "category"],
     "product-requests": [
       "sme",
@@ -84,6 +94,8 @@ export async function workspaceData(
     needed.push("product_request");
   const primary: Record<string, string> = {
     user_account: "user_id",
+    catalog_choice: "choice_id",
+    catalog_choice_request: "choice_request_id",
     sme: "sme_id",
     category: "category_id",
     brand: "brand_id",

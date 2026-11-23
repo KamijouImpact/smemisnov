@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ActionForm } from "./form";
+import { approvedChoices, RequestChoice } from "./catalog-choices";
 import { Panel, Table, Status } from "./table";
 import { Props, area, choice, select, text } from "./fields";
 import { Account, date } from "@/lib/mis/types";
@@ -10,6 +11,10 @@ export function Stores({ db, admin }: Props) {
           Number(b.status === "Pending") - Number(a.status === "Pending"),
       )
     : db.sme;
+  const businessTypes = approvedChoices(db.catalog_choice, "business_type");
+  const storesWithOldTypes = stores.filter(
+    (store) => !businessTypes.includes(String(store.business_type)),
+  );
   return (
     <>
       {!admin && stores.length === 0 && (
@@ -21,12 +26,36 @@ export function Stores({ db, admin }: Props) {
             action="store"
             fields={[
               text("store_name", "Store name"),
-              text("business_type", "Business type"),
+              choice("business_type", "Business type", businessTypes),
               area("address", "Store address"),
             ]}
             submit="Register store"
           />
         </Panel>
+      )}
+      {!admin && storesWithOldTypes.length > 0 && (
+        <Panel
+          title="Update business type"
+          description="Choose an approved type for your existing store."
+        >
+          <ActionForm
+            rpc="manage_catalog_choice"
+            hidden={{ action: "update_business_type" }}
+            fields={[
+              select("sme_id", "Store", storesWithOldTypes, "sme_id", (store) =>
+                String(store.store_name),
+              ),
+              choice("business_type", "Business type", businessTypes),
+            ]}
+            submit="Save business type"
+          />
+        </Panel>
+      )}
+      {!admin && (
+        <RequestChoice
+          requests={db.catalog_choice_request}
+          kinds={["business_type"]}
+        />
       )}
       {admin && stores.length > 0 && (
         <Panel title="Approve or pause a store">

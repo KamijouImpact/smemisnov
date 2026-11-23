@@ -2,7 +2,7 @@
 Set SME_QA_CREDENTIALS to an untracked JSON file of test accounts.
 The database owner provisions and removes these accounts; this script sends no mail.
 """
-import json,os
+import json,os,uuid
 from datetime import datetime,timedelta,timezone
 from playwright.sync_api import sync_playwright,expect
 BASE=os.environ.get('SME_QA_URL','http://127.0.0.1:3001')
@@ -48,7 +48,13 @@ with sync_playwright() as p:
  expect(owner).to_have_url(BASE+'/workspace/overview')
  expect(owner.get_by_role('link',name='Browse products',exact=True)).to_have_count(0)
  check('Signed-in Owner stays in their store workspace')
- go(owner,'stores');save(owner,'Add a store',{'store_name':'QA Browser Store','business_type':'Small retail','address':'QA test address'},done=owner.get_by_text('QA Browser Store',exact=True));expect(owner.get_by_role('heading',name='Add a store',exact=True)).to_have_count(0);check('Owner registers one store')
+ business_choice='QA Specialty Store '+uuid.uuid4().hex[:8]
+ go(owner,'stores')
+ save(owner,'Request a business type',{'label':business_choice},done=owner.get_by_role('cell',name=business_choice,exact=True))
+ expect(owner.locator('[name=business_type] option').filter(has_text=business_choice)).to_have_count(0)
+ go(admin,'choice-requests')
+ save(admin,'Review a requested option',{'choice_request_id':{'contains':business_choice},'decision':'Approved'},done=admin.get_by_role('heading',name='Reviewed options',exact=True))
+ go(owner,'stores');save(owner,'Add a store',{'store_name':'QA Browser Store','business_type':business_choice,'address':'QA test address'},done=owner.get_by_text('QA Browser Store',exact=True));expect(owner.get_by_role('heading',name='Add a store',exact=True)).to_have_count(0);check('Owner selects an Administrator-approved business type')
  go(admin,'stores');save(admin,'Approve or pause a store',{'sme_id':'QA Browser Store · Pending','status':{'value':'Active'}});check('Administrator activates store')
  go(owner,'products')
  save(owner,'Add a product',{'product_name':'QA Browser Cans','category_name':'Food','brand':'QA Browser Brand','variant':'Original','stock_unit':'can','package_size_value':'155','package_size_unit':'g'},done=owner.get_by_role('link',name='Set price',exact=True).first)

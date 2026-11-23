@@ -22,6 +22,7 @@ export function navigation(role: Account["role"]) {
         item("overview", "Overview"),
         item("stores", "Store approvals"),
         item("product-requests", "Product requests"),
+        item("choice-requests", "Option requests"),
         item("prices", "Price approvals"),
         item("concerns", "Price reports"),
       ],

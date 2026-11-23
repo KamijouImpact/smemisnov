@@ -3,6 +3,7 @@ BEGIN;
 DO $$
 DECLARE admin_id uuid:=gen_random_uuid(); owner_a uuid:=gen_random_uuid(); owner_b uuid:=gen_random_uuid(); owner_c uuid:=gen_random_uuid(); customer_id uuid:=gen_random_uuid();
  cat bigint; brand bigint; prod bigint; var bigint; piece bigint; box bigint; store_a bigint; store_b bigint; store_c bigint; pa bigint; pb bigint; pc bigint; stock_a bigint; req bigint; req2 bigint; tx bigint; rev bigint; event bigint; entry bigint; report bigint; no_reply_report bigint; result jsonb;
+ option_request bigint;
  tea_a bigint; tea_b bigint; tea_c bigint; tea_conflict bigint; tea_request bigint;
 BEGIN
  INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES(admin_id,admin_id||'@example.test','{}'),(owner_a,owner_a||'@example.test','{}'),(owner_b,owner_b||'@example.test','{}'),(owner_c,owner_c||'@example.test','{}'),(customer_id,customer_id||'@example.test','{}');
@@ -26,7 +27,28 @@ BEGIN
  END;
  box:=(public.mis_command('unit',jsonb_build_object('variation_id',var,'unit_name','box of 24','stock_units',24)) ->>'id')::bigint;
  PERFORM set_config('request.jwt.claim.sub',owner_a::text,true);
- store_a:=(public.mis_command('store','{"store_name":"Test A","business_type":"General retail","address":"Test"}') ->>'id')::bigint;
+ BEGIN
+  PERFORM public.mis_command('store','{"store_name":"Test A","business_type":"Unapproved shop","address":"Test"}');
+  RAISE EXCEPTION 'Expected unapproved business type refusal';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM NOT LIKE 'Choose an approved option%' THEN RAISE; END IF;
+ END;
+ PERFORM public.manage_catalog_choice('{"action":"request","kind":"business_type","label":"  Café   Supplies  "}');
+ SELECT choice_request_id INTO option_request FROM public.catalog_choice_request WHERE requested_by=owner_a;
+ ASSERT NOT EXISTS(SELECT 1 FROM public.catalog_choice WHERE label='Café Supplies'),
+  'Pending choice is unavailable';
+ BEGIN
+  PERFORM public.manage_catalog_choice(jsonb_build_object('action','review','choice_request_id',option_request,'decision','Approved'));
+  RAISE EXCEPTION 'Expected Owner approval refusal';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM<>'You do not have access to this action.' THEN RAISE; END IF;
+ END;
+ PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);
+ PERFORM public.manage_catalog_choice(jsonb_build_object('action','review','choice_request_id',option_request,'decision','Approved'));
+ PERFORM set_config('request.jwt.claim.sub',owner_a::text,true);
+ store_a:=(public.mis_command('store','{"store_name":"Test A","business_type":"café  supplies","address":"Test"}') ->>'id')::bigint;
+ ASSERT (SELECT business_type='Café Supplies' FROM public.sme WHERE sme_id=store_a),
+  'Store uses canonical approved label';
  BEGIN
   PERFORM public.mis_command('store','{"store_name":"Duplicate","business_type":"General retail","address":"Test"}');
   RAISE EXCEPTION 'Expected second store registration refusal';
@@ -40,6 +62,17 @@ BEGIN
  PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);
  PERFORM public.mis_command('store_status',jsonb_build_object('sme_id',store_a,'status','Active'));PERFORM public.mis_command('store_status',jsonb_build_object('sme_id',store_b,'status','Active'));PERFORM public.mis_command('store_status',jsonb_build_object('sme_id',store_c,'status','Active'));
  PERFORM set_config('request.jwt.claim.sub',owner_a::text,true);
+ BEGIN
+  PERFORM public.manage_catalog_choice(jsonb_build_object(
+   'action','update_business_type','sme_id',store_b,'business_type','Grocery'));
+  RAISE EXCEPTION 'Expected cross-store update refusal';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM<>'Choose a store you own.' THEN RAISE; END IF;
+ END;
+ PERFORM public.manage_catalog_choice(jsonb_build_object(
+  'action','update_business_type','sme_id',store_a,'business_type','Sari-sari store'));
+ ASSERT (SELECT business_type='Sari-sari store' FROM public.sme WHERE sme_id=store_a),
+  'Owner can replace their own business type';
  stock_a:=(public.mis_command('list_unit',jsonb_build_object('sme_id',store_a,'unit_id',piece))->>'id')::bigint;
  PERFORM public.mis_command('list_unit',jsonb_build_object('sme_id',store_a,'unit_id',box));
  SELECT store_price_id INTO pa FROM public.store_price WHERE store_product_id=stock_a AND unit_id=piece;
@@ -176,7 +209,7 @@ BEGIN
  PERFORM set_config('request.jwt.claim.sub',owner_c::text,true);
  tea_c:=(public.create_store_product(jsonb_build_object(
   'sme_id',store_c,'product_name',' evidence   citrus TEA ','brand','reference farms',
-  'category_name','Drinks','stock_unit','bottle','package_size_value','1','package_size_unit','L'
+  'category_name','Beverages','stock_unit','bottle','package_size_value','1','package_size_unit','L'
  ))->>'id')::bigint;
  req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',tea_c,'proposed_price','100'))->>'id')::bigint;
  ASSERT (SELECT snapshot->>'reference_count'='1' AND snapshot->>'indication'='Insufficient reference data'
@@ -188,7 +221,7 @@ BEGIN
  PERFORM set_config('request.jwt.claim.sub',owner_c::text,true);
  tea_conflict:=(public.create_store_product(jsonb_build_object(
   'sme_id',store_c,'product_name','Evidence Citrus Tea','brand','Reference Farms',
-  'category_name','Drinks','stock_unit','bottle','package_size_value','2','package_size_unit','L',
+  'category_name','Beverages','stock_unit','bottle','package_size_value','2','package_size_unit','L',
   'barcode','012345678905'
  ))->>'id')::bigint;
  req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',tea_conflict,'proposed_price','999'))->>'id')::bigint;
@@ -199,6 +232,20 @@ BEGIN
  PERFORM public.mis_command('review_price',jsonb_build_object('price_request_id',req,'decision','Approved','decision_reason','Initial price reviewed.'));
 
  PERFORM set_config('request.jwt.claim.sub',owner_a::text,true);
+ BEGIN
+  PERFORM public.create_store_product(jsonb_build_object(
+   'sme_id',store_a,'product_name','Fixture','category_name','Unapproved category'));
+  RAISE EXCEPTION 'Expected unapproved product category refusal';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM NOT LIKE 'Choose an approved option%' THEN RAISE; END IF;
+ END;
+ BEGIN
+  PERFORM public.create_store_product(jsonb_build_object(
+   'sme_id',store_a,'product_name','Fixture','category_name','Food','stock_unit','Unapproved unit'));
+  RAISE EXCEPTION 'Expected unapproved stock unit refusal';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM NOT LIKE 'Choose an approved option%' THEN RAISE; END IF;
+ END;
  tea_a:=(public.create_store_product(jsonb_build_object(
   'sme_id',store_a,'product_name','Evidence Citrus Tea','brand','Reference Farms',
   'category_name','Pantry','stock_unit','bottle','package_size_value','1','package_size_unit','L',
@@ -257,6 +304,8 @@ END $$;
 SELECT set_config('request.jwt.claim.sub',current_setting('mis.test.owner'),true);
 DO $$ BEGIN
  ASSERT (SELECT count(*)=1 FROM public.sme),'Owner sees own store only';
+ ASSERT (SELECT count(*)=1 FROM public.catalog_choice_request),'Owner sees their own option request';
+ ASSERT EXISTS(SELECT 1 FROM public.catalog_choice WHERE label='Café Supplies'),'Approved option is visible to Owner';
  ASSERT jsonb_array_length(public.browse_products('Test sardines')) > 0,'Owner can receive their own published listings';
  ASSERT NOT EXISTS (
   SELECT 1 FROM jsonb_array_elements(public.browse_products('Test sardines')) AS listing
@@ -272,6 +321,7 @@ END $$;
 SELECT set_config('request.jwt.claim.sub',current_setting('mis.test.customer'),true);
 DO $$ BEGIN
  ASSERT NOT EXISTS(SELECT 1 FROM public.store_product),'Customer cannot read private stock';
+ ASSERT NOT EXISTS(SELECT 1 FROM public.catalog_choice_request),'Customer cannot see option requests';
  ASSERT NOT EXISTS(SELECT 1 FROM public.price_request),'Customer cannot read internal approvals';
  ASSERT NOT EXISTS(SELECT 1 FROM public.price_rule),'Customer cannot read price rules';
  ASSERT NOT EXISTS(SELECT 1 FROM public.price_request_evidence),'Customer cannot read reference snapshots';

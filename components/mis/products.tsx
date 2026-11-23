@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ComponentProps } from "react";
 import { ActionForm } from "./form";
+import { approvedChoices, RequestChoice } from "./catalog-choices";
 import {
   AddLegacyPack,
   AddProduct,
@@ -70,14 +71,6 @@ function productSuggestions(
           ? null
           : variation.variation_name,
       ),
-    ),
-    categories: uniqueSuggestions(
-      db.category
-        .filter(
-          (category) =>
-            String(category.sme_id) === storeId && category.status === "Active",
-        )
-        .map((category) => category.category_name),
     ),
   };
 }
@@ -177,7 +170,15 @@ export function Products({ db, admin }: Props) {
             title="Add a product"
             description="Choose the category and pack details where you can. Brand, variant, size, and barcode help match the same item across stores."
           >
-            <AddProduct stores={stores} suggestions={suggestions} />
+            <AddProduct
+              stores={stores}
+              suggestions={suggestions}
+              categories={approvedChoices(
+                db.catalog_choice,
+                "product_category",
+              )}
+              stockUnits={approvedChoices(db.catalog_choice, "stock_unit")}
+            />
           </Panel>
           {legacyChoices.length > 0 && (
             <Panel collapsible title="Add a pack to an existing product">
@@ -189,6 +190,12 @@ export function Products({ db, admin }: Props) {
             </Panel>
           )}
         </>
+      )}
+      {!admin && (
+        <RequestChoice
+          requests={db.catalog_choice_request}
+          kinds={["product_category", "stock_unit"]}
+        />
       )}
       <Panel collapsible={admin} title="Store products">
         {!admin &&

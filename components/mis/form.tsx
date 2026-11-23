@@ -15,7 +15,7 @@ export function ActionForm({
   extraFields = [],
 }: (
   | { action: string; rpc?: never }
-  | { action?: never; rpc: "create_store_product" }
+  | { action?: never; rpc: "create_store_product" | "manage_catalog_choice" }
 ) & {
   fields?: Field[];
   hidden?: Record<string, string | number>;

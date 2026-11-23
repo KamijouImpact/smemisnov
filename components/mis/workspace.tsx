@@ -9,6 +9,7 @@ import { Promotions } from "./promotions";
 import { Concerns } from "./concerns";
 import { Reports, Stat } from "./reports";
 import { Panel } from "./table";
+import { ChoiceApprovals } from "./catalog-choices";
 function nextTask(db: Database, admin: boolean, waitingPrices: number) {
   if (admin) {
     if (db.sme.some((store) => store.status === "Pending"))
@@ -175,6 +176,7 @@ export function WorkspacePage({
     products: <Products {...props} />,
     catalog: <Catalog {...props} />,
     "product-requests": <ProductRequests {...props} />,
+    "choice-requests": <ChoiceApprovals requests={db.catalog_choice_request} />,
     prices: <Prices {...props} requestedItem={requestedItem} />,
     rules: <Rules {...props} />,
     stock: <Stock {...props} />,

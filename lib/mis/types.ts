@@ -23,6 +23,8 @@ export type Field = {
 };
 export const tables = [
   "user_account",
+  "catalog_choice",
+  "catalog_choice_request",
   "sme",
   "category",
   "brand",

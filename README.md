@@ -50,11 +50,13 @@ There are no shared demo passwords or public test accounts in this repository.
 
 ## First store and product
 
-1. The Owner registers a store, and an Administrator activates it.
-2. In **My products**, the Owner adds the product to their store. The form offers category, unit, and pack-count suggestions. Record the brand, variant, size, and barcode when available so exact matches can be distinguished.
+1. The Owner registers a store with an approved business type, and an Administrator activates it.
+2. In **My products**, the Owner adds the product to their store. The form offers approved category and stock-unit choices, plus pack-count suggestions. Record the brand, variant, size, and barcode when available so exact matches can be distinguished.
 3. The Owner records starting stock and uses **Set price** to submit the first price. The listing becomes public after Administrator approval.
 4. Use **Change price** on the listing to propose another price. A pending request leaves the approved price in effect.
 5. Administrators review exact matching listings in **Price approvals**. Evidence is private to Administrators. Requests without sufficient matching data stay in manual review under the configured policy.
+
+Owners can request missing business types, product categories, and stock units. An Administrator can approve or reject them from **Option requests**. Approval makes the option available to Owners. Existing stores with older business-type values can choose an approved replacement.
 
 Existing shared catalog listings and product requests are retained. Administrators review older catalog requests in **Product requests** and can approve one only after selecting an exact pack.
 
