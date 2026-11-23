@@ -42,7 +42,7 @@ export default async function Section({
   const supabase = await createClient();
   const [db, { data: publicRows, error }] = await Promise.all([
     workspaceData(user.role, section),
-    section === "concerns"
+    section === "concerns" && user.role !== "Owner"
       ? supabase.rpc("browse_products", { search: "" })
       : Promise.resolve({ data: [], error: null }),
   ]);

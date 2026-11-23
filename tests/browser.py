@@ -44,6 +44,10 @@ with sync_playwright() as p:
  for user in users:
   context=browser.new_context(ignore_https_errors=True,viewport={'width':1365,'height':1000});contexts.append(context);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(BASE+'/auth/login');page.locator('[name=email]').fill(user['email']);page.locator('[name=password]').fill(user['password']);page.locator('form').get_by_role('button',name='Log in',exact=True).click();page.wait_for_url('**/workspace/**',timeout=30000);expect(page.locator('main.workspace-main')).to_be_visible(timeout=30000);pages[user['role']]=page;check(user['role']+' login and workspace')
  admin=pages['Administrator'];owner=pages['Owner'];customer=pages['Customer']
+ owner.goto(BASE)
+ expect(owner).to_have_url(BASE+'/workspace/overview')
+ expect(owner.get_by_role('link',name='Browse products',exact=True)).to_have_count(0)
+ check('Signed-in Owner stays in their store workspace')
  go(owner,'stores');save(owner,'Add a store',{'store_name':'QA Browser Store','business_type':'Small retail','address':'QA test address'},done=owner.get_by_text('QA Browser Store',exact=True));expect(owner.get_by_role('heading',name='Add a store',exact=True)).to_have_count(0);check('Owner registers one store')
  go(admin,'stores');save(admin,'Approve or pause a store',{'sme_id':'QA Browser Store · Pending','status':{'value':'Active'}});check('Administrator activates store')
  go(owner,'products')

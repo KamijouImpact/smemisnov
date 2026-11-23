@@ -15,7 +15,7 @@ export default async function WorkspaceLayout({
         <main className="password-page">
           <h1>Your account is inactive</h1>
           <p>Contact the Administrator to restore access.</p>
-          <Link href="/">Browse products</Link>
+          {user.role !== "Owner" && <Link href="/">Browse products</Link>}
         </main>
       </>
     );

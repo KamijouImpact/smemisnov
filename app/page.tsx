@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { account } from "@/lib/mis/data";
 import { Row, peso, date } from "@/lib/mis/types";
@@ -12,6 +13,7 @@ export default async function Browse({
 }) {
   const params = await searchParams;
   const user = await account();
+  if (user?.role === "Owner") redirect("/workspace/overview");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("browse_products", {
     search: params.q || "",

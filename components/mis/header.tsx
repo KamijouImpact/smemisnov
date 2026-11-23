@@ -2,9 +2,13 @@ import Link from "next/link";
 import { Account } from "@/lib/mis/types";
 import { Logout } from "./logout";
 export function Header({ user }: { user: Account | null }) {
+  const ownerWorkspace = user?.role === "Owner";
   return (
     <header className="topbar">
-      <Link className="brand" href="/">
+      <Link
+        className="brand"
+        href={ownerWorkspace ? "/workspace/overview" : "/"}
+      >
         <span className="brand-icon">
           s<span>m</span>e
         </span>
@@ -13,7 +17,7 @@ export function Header({ user }: { user: Account | null }) {
         </span>
       </Link>
       <nav aria-label="Main navigation">
-        <Link href="/">Browse products</Link>
+        {!ownerWorkspace && <Link href="/">Browse products</Link>}
         {user ? (
           <>
             <Link href="/workspace">

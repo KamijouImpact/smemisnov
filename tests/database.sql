@@ -257,6 +257,11 @@ END $$;
 SELECT set_config('request.jwt.claim.sub',current_setting('mis.test.owner'),true);
 DO $$ BEGIN
  ASSERT (SELECT count(*)=1 FROM public.sme),'Owner sees own store only';
+ ASSERT jsonb_array_length(public.browse_products('Test sardines')) > 0,'Owner can receive their own published listings';
+ ASSERT NOT EXISTS (
+  SELECT 1 FROM jsonb_array_elements(public.browse_products('Test sardines')) AS listing
+  WHERE listing->>'store_name' <> (SELECT store_name FROM public.sme)
+ ),'Signed-in Owner cannot browse listings from other stores';
  ASSERT NOT EXISTS(SELECT 1 FROM public.price_rule),'Owner cannot read price rules';
  ASSERT NOT EXISTS(SELECT 1 FROM public.price_request_evidence),'Owner cannot read reference snapshots';
  ASSERT NOT EXISTS(SELECT 1 FROM public.price_request WHERE reference_count<>0 OR reference_median IS NOT NULL OR allowed_price IS NOT NULL),'Owner-readable requests contain no private comparison metrics';
