@@ -20,7 +20,11 @@ export function Header({ user }: { user: Account | null }) {
         {!ownerWorkspace && <Link href="/">Browse products</Link>}
         {user ? (
           <>
-            <Link href="/workspace">
+            <Link
+              href={
+                user.role === "Customer" ? "/workspace/concerns" : "/workspace"
+              }
+            >
               {user.role === "Customer" ? "My price reports" : "Workspace"}
             </Link>
             <Logout />

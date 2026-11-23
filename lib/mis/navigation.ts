@@ -11,10 +11,7 @@ export function navigation(role: Account["role"]) {
       groups: [],
     };
 
-  const support = [
-    item("reports", "Sales & stock reports"),
-    item("promotions", "Promotions"),
-  ];
+  const promotions = item("promotions", "Promotions");
 
   if (role === "Administrator")
     return {
@@ -32,7 +29,8 @@ export function navigation(role: Account["role"]) {
           items: [
             item("catalog", "Product catalog"),
             item("stock", "Stock levels"),
-            ...support,
+            item("reports", "Sales & stock reports"),
+            promotions,
           ],
         },
         {
@@ -52,12 +50,13 @@ export function navigation(role: Account["role"]) {
       item("products", "My products"),
       item("prices", "Price requests"),
       item("stock", "Stock"),
+      item("reports", "Sales & stock reports"),
       item("stores", "My store"),
     ],
     groups: [
       {
-        label: "Reports and promotions",
-        items: [item("concerns", "Price reports"), ...support],
+        label: "More",
+        items: [item("concerns", "Price reports"), promotions],
       },
       { label: "Account", items: [account] },
     ],

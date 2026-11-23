@@ -12,6 +12,12 @@ import { Panel } from "./table";
 import { ChoiceApprovals } from "./catalog-choices";
 function nextTask(db: Database, admin: boolean, waitingPrices: number) {
   if (admin) {
+    if (waitingPrices)
+      return {
+        path: "prices",
+        title: "Review price requests",
+        text: "Check the prices that need a decision.",
+      };
     if (db.sme.some((store) => store.status === "Pending"))
       return {
         path: "stores",
@@ -28,11 +34,13 @@ function nextTask(db: Database, admin: boolean, waitingPrices: number) {
         title: "Review product requests",
         text: "Stores are waiting for a catalog product or pack size.",
       };
-    if (waitingPrices)
+    if (
+      db.catalog_choice_request.some((request) => request.status === "Pending")
+    )
       return {
-        path: "prices",
-        title: "Review price requests",
-        text: "Check the prices that need a decision.",
+        path: "choice-requests",
+        title: "Review requested options",
+        text: "Owners are waiting for a business type, product category, or stock unit.",
       };
     if (!db.store_product.length)
       return {
@@ -43,7 +51,7 @@ function nextTask(db: Database, admin: boolean, waitingPrices: number) {
     return {
       path: "reports",
       title: "View sales and stock reports",
-      text: "No stores, products, or prices are waiting for approval.",
+      text: "Store, product, option, and price approval queues are clear.",
     };
   }
 
@@ -63,7 +71,7 @@ function nextTask(db: Database, admin: boolean, waitingPrices: number) {
     return {
       path: "products",
       title: "Add a product",
-      text: "Choose a product and pack size from the shared catalog.",
+      text: "Choose a category and stock unit, then enter the details printed on the product.",
     };
   if (
     db.store_price.some(
@@ -82,9 +90,9 @@ function nextTask(db: Database, admin: boolean, waitingPrices: number) {
       text: "See whether your price is approved or needs more information.",
     };
   return {
-    path: "prices",
-    title: "Request a selling price",
-    text: "Approved selling prices appear in the public catalog.",
+    path: "products",
+    title: "Set your first price",
+    text: "Open your product and choose Set price. Customers can see it after approval.",
   };
 }
 
@@ -135,6 +143,10 @@ function Home({ db, role }: { db: Database; role: Account["role"] }) {
                   "Review products and pack sizes requested by stores.",
                 ],
                 ["prices", "Check prices that need a decision."],
+                [
+                  "choice-requests",
+                  "Review missing options requested by Owners.",
+                ],
                 ["concerns", "Check reported price problems."],
                 ["reports", "See store, sales, and stock records."],
               ]

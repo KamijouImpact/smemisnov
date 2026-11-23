@@ -1,0 +1,23 @@
+# SME MIS project diary
+
+Read the newest entry first. For setup, workspace locations and role workflows, start with the [README](README.md#start-here). Add dated entries for changes that affect how people use, operate or develop the system. Include the decision, verification and outstanding work. Keep account credentials and customer or store records out of the diary.
+
+## 2026-11-23 — Make each role’s starting point clear
+
+The Owner’s main menu now includes **Sales & stock reports**. Overview points a new Owner to their own product and its **Set price** action. The Administrator’s next step prioritizes waiting prices and includes pending option requests. Customers start by browsing approved listings.
+
+The README now maps the three workspaces and explains how to run, check and publish changes. The project documents describe different staffing models. The agreed roles for this implementation are Owner, Administrator and Customer.
+
+Verification covered lint, TypeScript, nine unit tests, a production build, and local browser sign-in and navigation for all three roles using fixture accounts.
+
+## 2026-11-23 — Store-owned products and clean choices
+
+Owners manage their own products, stock and prices. The first price of a new store-owned product needs Administrator approval. An Administrator can compare recent approved regular prices for the same variation and pack at other participating stores. Missing or insufficient evidence goes to manual review. Signed-in Owners stay in their own workspace.
+
+Store registration and product entry now offer 14 business types, 17 product categories and 21 stock units. Owners request a missing option and Administrators review it. Existing business types can be updated under **My store**. Verification included database workflow checks and browser checks of option requests and the production Administrator review page. See commits `cfc698c`, `d6fb104` and `3c3ceae`.
+
+**Open pricing decision.** Later price changes use the configured approval rule. The pasted blueprint proposes manual approval for every increase and immediate decreases. Confirm that policy before changing how an approved price takes effect.
+
+## 2026-11-18 — Store setup and product requests
+
+New Owners register one store. Administrators activate stores and can find outstanding catalog requests under **Product requests**. Approval of a legacy product request requires a matching pack so later price comparisons refer to the same selling quantity. See commits `2bf8391` and `2ca8ac4`.

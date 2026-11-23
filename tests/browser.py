@@ -42,7 +42,15 @@ with sync_playwright() as p:
  browser=p.chromium.launch(headless=True,args=['--no-sandbox'],proxy={'server':os.environ.get('HTTPS_PROXY','http://proxy:8080'),'bypass':'127.0.0.1,localhost'})
  contexts=[];pages={};errors=[]
  for user in users:
-  context=browser.new_context(ignore_https_errors=True,viewport={'width':1365,'height':1000});contexts.append(context);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(BASE+'/auth/login');page.locator('[name=email]').fill(user['email']);page.locator('[name=password]').fill(user['password']);page.locator('form').get_by_role('button',name='Log in',exact=True).click();page.wait_for_url('**/workspace/**',timeout=30000);expect(page.locator('main.workspace-main')).to_be_visible(timeout=30000);pages[user['role']]=page;check(user['role']+' login and workspace')
+  context=browser.new_context(ignore_https_errors=True,viewport={'width':1365,'height':1000});contexts.append(context);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(BASE+'/auth/login');page.locator('[name=email]').fill(user['email']);page.locator('[name=password]').fill(user['password']);page.locator('form').get_by_role('button',name='Log in',exact=True).click()
+  if user['role']=='Customer':
+   expect(page.get_by_role('heading',name='Browse products')).to_be_visible(timeout=30000)
+   page.get_by_role('link',name='My price reports').click()
+   expect(page).to_have_url(BASE+'/workspace/concerns')
+  else:
+   expect(page).to_have_url(BASE+'/workspace/overview',timeout=30000)
+  expect(page.locator('main.workspace-main')).to_be_visible(timeout=30000)
+  pages[user['role']]=page;check(user['role']+' login and workspace')
  admin=pages['Administrator'];owner=pages['Owner'];customer=pages['Customer']
  owner.goto(BASE)
  expect(owner).to_have_url(BASE+'/workspace/overview')

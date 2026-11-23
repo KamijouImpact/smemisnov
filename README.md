@@ -2,17 +2,22 @@
 
 A Next.js and Supabase implementation of the project document. It supports Administrator, Owner, and Customer accounts, with public browsing that requires no login.
 
-## Main functions
+## Start here
 
-- One login/register portal, optional email confirmation, password recovery, and separate role access.
-- Store registration and Administrator review.
-- Shared categories, brands, products, variations, and fixed selling packages.
-- Other / Not Listed requests that the Administrator matches or resolves.
-- Exact-product price references, versioned rules, automatic approval, manual review, explanations, rejection, resubmission, and price history.
-- Opening stock, restocks, sales, losses, spoilage, damage, quantity/cost corrections, and one-time reversals.
-- Low-stock warnings, reports, CSV export, and printing.
-- Administrator event promotions with Owner participation and discount approval.
-- Customer price reports, Owner responses, and Administrator findings.
+Open the [production site](https://smemisnov.vercel.app). Customers and guests start in the public catalog. Owners and Administrators use their role’s workspace after sign-in.
+
+| Who | Where to start | What happens next |
+| --- | --- | --- |
+| Owner | **My store** → register one store and wait for activation | In **My products**, add a product and its pack, then choose **Set price**. Record stock and sales in **Stock**. Open **Sales & stock reports** for sales, estimated profit and restocking decisions. |
+| Administrator | **Overview** → **Price approvals** | Review the proposed price and eligible prices from other stores for the same variant and pack. Decide manually when evidence is insufficient. Use **Store approvals** and **Option requests** to unblock Owners. |
+| Customer | Search the public catalog | View approved prices and reported availability. Sign in to report a price concern and follow its outcome. |
+
+### Working on this repository
+
+1. Read the latest entry in [diary.md](diary.md) for recent changes, decisions and open questions.
+2. Use the [project structure](#project-structure) to locate the screen and its data access. The [document cross-reference](docs/CROSS_REFERENCE.md) explains the workflow and database rules.
+3. Follow [local setup](#run-locally) and run the [checks](#checks). Check the affected role’s flow before publishing.
+4. Record the change, why it matters, what was verified and any unresolved decision in the diary. Verified updates go to `main`, which deploys to the production link above. Check deployment status and the live route before announcing release.
 
 ## Run locally
 
@@ -61,12 +66,6 @@ Owners can request missing business types, product categories, and stock units. 
 Existing shared catalog listings and product requests are retained. Administrators review older catalog requests in **Product requests** and can approve one only after selecting an exact pack.
 
 The latest specification proposes manual approval for all increases and immediate Owner decreases. This differs from the existing configurable automatic approval policy. This update requires manual review for the first price of a new store-owned product and keeps the existing policy for subsequent changes pending a policy decision.
-
-## Simple screens
-
-The main menu shows everyday tasks: Home, Products, Prices, Stock, Reports, and Price reports. Administrators also see Stores. Less-used options are under More. Product setup sections, older records, and extra transaction details can be expanded when needed. The database records and approval rules are unchanged.
-
-The interface uses plain CSS; the unused Tailwind setup and old starter pages have been removed. Each page loads the records it uses.
 
 ## Project structure
 

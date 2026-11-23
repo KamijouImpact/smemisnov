@@ -91,7 +91,7 @@ export async function workspaceData(
         : []
       : (byPage[section] ?? []);
   if (role === "Administrator" && section === "overview")
-    needed.push("product_request");
+    needed.push("product_request", "catalog_choice_request");
   const primary: Record<string, string> = {
     user_account: "user_id",
     catalog_choice: "choice_id",
