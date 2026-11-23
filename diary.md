@@ -1,6 +1,10 @@
 # SME MIS project diary
 
-Read the newest entry first. For setup, workspace locations and role workflows, start with the [README](README.md#start-here). Add dated entries for changes that affect how people use, operate or develop the system. Include the decision, verification and outstanding work. Keep account credentials and customer or store records out of the diary.
+Read the newest entry first. For setup, workspace locations and role workflows, start with the [contributor guide](AGENTS.md). Add dated entries for changes that affect how people use, operate or develop the system. Include the decision, verification and outstanding work. Keep account credentials and customer or store records out of the diary.
+
+## 2026-11-23 — Contributor onboarding
+
+The requested onboarding is for developers and AI agents joining this repository. The previous update combined contributor notes and app navigation improvements. The root contributor guide now gives incoming contributors a reading order, a product-form-to-database example, and the workflow for verification, release and handoff. The README links to it first. Checked the guide’s repository paths, setup links and RPC example. The open pricing decision below still needs an answer.
 
 ## 2026-11-23 — Make each role’s starting point clear
 

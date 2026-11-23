@@ -4,6 +4,10 @@ A Next.js and Supabase implementation of the project document. It supports Admin
 
 ## Start here
 
+Developers and AI agents should begin with the [contributor guide](AGENTS.md), then read the latest [project diary entry](diary.md).
+
+## Using the application
+
 Open the [production site](https://smemisnov.vercel.app). Customers and guests start in the public catalog. Owners and Administrators use their role’s workspace after sign-in.
 
 | Who | Where to start | What happens next |
@@ -11,13 +15,6 @@ Open the [production site](https://smemisnov.vercel.app). Customers and guests s
 | Owner | **My store** → register one store and wait for activation | In **My products**, add a product and its pack, then choose **Set price**. Record stock and sales in **Stock**. Open **Sales & stock reports** for sales, estimated profit and restocking decisions. |
 | Administrator | **Overview** → **Price approvals** | Review the proposed price and eligible prices from other stores for the same variant and pack. Decide manually when evidence is insufficient. Use **Store approvals** and **Option requests** to unblock Owners. |
 | Customer | Search the public catalog | View approved prices and reported availability. Sign in to report a price concern and follow its outcome. |
-
-### Working on this repository
-
-1. Read the latest entry in [diary.md](diary.md) for recent changes, decisions and open questions.
-2. Use the [project structure](#project-structure) to locate the screen and its data access. The [document cross-reference](docs/CROSS_REFERENCE.md) explains the workflow and database rules.
-3. Follow [local setup](#run-locally) and run the [checks](#checks). Check the affected role’s flow before publishing.
-4. Record the change, why it matters, what was verified and any unresolved decision in the diary. Verified updates go to `main`, which deploys to the production link above. Check deployment status and the live route before announcing release.
 
 ## Run locally
 
