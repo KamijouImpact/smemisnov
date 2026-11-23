@@ -50,12 +50,15 @@ There are no shared demo passwords or public test accounts in this repository.
 
 ## First store and product
 
-1. Administrator: add a Category and any Brand, then Product, Variation, and Selling Unit.
-2. Owner: register one store. An Administrator activates it. Owners with multiple stores registered before this limit retain access to those stores.
-3. Owner: select the shared selling units or submit Other / Not Listed details.
-4. Owner: record opening stock and submit a selling-price request.
-5. Administrator: review the first price. The approved listing then appears publicly.
-6. Administrator: activate a price rule only after agreeing on its settings. Without a rule or enough reliable references, requests remain for manual review.
+1. The Owner registers a store, and an Administrator activates it.
+2. In **My products**, the Owner adds the product to their store. The form offers category, unit, and pack-count suggestions. Record the brand, variant, size, and barcode when available so exact matches can be distinguished.
+3. The Owner records starting stock and uses **Set price** to submit the first price. The listing becomes public after Administrator approval.
+4. Use **Change price** on the listing to propose another price. A pending request leaves the approved price in effect.
+5. Administrators review exact matching listings in **Price approvals**. Evidence is private to Administrators. Requests without sufficient matching data stay in manual review under the configured policy.
+
+Existing shared catalog listings and product requests are retained. Administrators review older catalog requests in **Product requests** and can approve one only after selecting an exact pack.
+
+The latest specification proposes manual approval for all increases and immediate Owner decreases. This differs from the existing configurable automatic approval policy. This update requires manual review for the first price of a new store-owned product and keeps the existing policy for subsequent changes pending a policy decision.
 
 ## Simple screens
 

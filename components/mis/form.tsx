@@ -6,14 +6,17 @@ import { simpleMessage } from "@/lib/mis/words";
 import { Field } from "@/lib/mis/types";
 export function ActionForm({
   action,
+  rpc,
   fields = [],
   hidden = {},
   title,
   submit = "Save",
   children,
   extraFields = [],
-}: {
-  action: string;
+}: (
+  | { action: string; rpc?: never }
+  | { action?: never; rpc: "create_store_product" }
+) & {
   fields?: Field[];
   hidden?: Record<string, string | number>;
   title?: string;
@@ -38,10 +41,11 @@ export function ActionForm({
         values[field.name] = String(values[field.name]) + ":00+08:00";
     }
     try {
-      const { data, error: failure } = await createClient().rpc("mis_command", {
-        action,
-        a: { ...values, ...hidden },
-      });
+      const client = createClient();
+      const a = { ...values, ...hidden };
+      const { data, error: failure } = rpc
+        ? await client.rpc(rpc, { a })
+        : await client.rpc("mis_command", { action, a });
       if (failure) throw failure;
       setError(false);
       setMessage(simpleMessage(data?.message || "Saved."));
@@ -107,17 +111,27 @@ export function ActionForm({
           rows={3}
         />
       ) : (
-        <input
-          id={`${id}-${f.name}`}
-          name={f.name}
-          type={f.type || "text"}
-          required={f.required !== false}
-          defaultValue={f.value}
-          min={f.min}
-          max={f.max}
-          step={f.step}
-          maxLength={f.type === "text" || !f.type ? 160 : undefined}
-        />
+        <>
+          <input
+            id={`${id}-${f.name}`}
+            name={f.name}
+            type={f.type || "text"}
+            required={f.required !== false}
+            defaultValue={f.value}
+            min={f.min}
+            max={f.max}
+            step={f.step}
+            maxLength={f.type === "text" || !f.type ? 160 : undefined}
+            list={f.suggestions?.length ? `${id}-${f.name}-options` : undefined}
+          />
+          {!!f.suggestions?.length && (
+            <datalist id={`${id}-${f.name}-options`}>
+              {f.suggestions.map((value) => (
+                <option key={value} value={value} />
+              ))}
+            </datalist>
+          )}
+        </>
       )}
       {f.help && <small>{f.help}</small>}
     </label>

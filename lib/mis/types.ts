@@ -13,6 +13,7 @@ export type Field = {
   label: string;
   type?: string;
   options?: Option[];
+  suggestions?: string[];
   required?: boolean;
   help?: string;
   value?: string | number;
@@ -34,6 +35,7 @@ export const tables = [
   "price_rule",
   "price_request",
   "price_reference",
+  "price_request_evidence",
   "price_history",
   "stock_transaction",
   "promotion",
@@ -83,7 +85,7 @@ export function label(db: Database, id: unknown, kind = "price"): string {
       : find(db, "product_unit", find(db, "store_price", id).unit_id);
   return [
     kind !== "unit" ? find(db, "sme", sp.sme_id).store_name : null,
-    b.brand_name,
+    p.store_brand_name || b.brand_name,
     p.product_name,
     p.model_or_style,
     v.variation_name,

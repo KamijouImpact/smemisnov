@@ -26,7 +26,7 @@ INSERT INTO public.user_account(user_id,role,full_name,login_name,status,created
 
 -- No client can insert/update/delete business tables. Commands below validate each transition.
 DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['user_account','sme','category','brand','product','product_variation','product_unit','product_request','store_product','store_price','price_rule','price_request','price_reference','price_history','stock_transaction','promotion','promotion_entry','customer_report'] LOOP
+ FOREACH t IN ARRAY ARRAY['user_account','sme','category','brand','product','product_variation','product_unit','product_request','store_product','store_price','price_rule','price_request','price_request_evidence','price_reference','price_history','stock_transaction','promotion','promotion_entry','customer_report'] LOOP
  EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',t);
  EXECUTE format('REVOKE ALL ON public.%I FROM anon,authenticated',t);
  EXECUTE format('GRANT SELECT ON public.%I TO authenticated',t);
@@ -44,6 +44,8 @@ CREATE POLICY store_product_read ON store_product FOR SELECT TO authenticated US
 CREATE POLICY store_price_read ON store_price FOR SELECT TO authenticated USING(private.can_product(store_product_id));
 CREATE POLICY price_request_read ON price_request FOR SELECT TO authenticated USING(private.can_price(store_price_id));
 CREATE POLICY price_rule_read ON price_rule FOR SELECT TO authenticated USING((select private.current_role())='Administrator');
+CREATE POLICY administrator_price_evidence_read ON price_request_evidence
+ FOR SELECT TO authenticated USING ((SELECT private.current_role()) = 'Administrator');
 CREATE POLICY reference_read ON price_reference FOR SELECT TO authenticated USING((select private.current_role())='Administrator');
 CREATE POLICY history_read ON price_history FOR SELECT TO authenticated USING(private.can_price(store_price_id));
 CREATE POLICY transaction_read ON stock_transaction FOR SELECT TO authenticated USING(private.can_product(store_product_id));

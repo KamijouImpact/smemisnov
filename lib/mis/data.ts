@@ -54,7 +54,9 @@ export async function workspaceData(
       ...productTables,
       "price_request",
       "price_history",
-      ...(role === "Administrator" ? ["price_reference"] : []),
+      ...(role === "Administrator"
+        ? ["price_reference", "price_request_evidence", "user_account"]
+        : []),
     ],
     stock: [...productTables, "stock_transaction"],
     promotions: [...productTables, "promotion", "promotion_entry"],
@@ -94,6 +96,7 @@ export async function workspaceData(
     price_rule: "rule_id",
     price_request: "price_request_id",
     price_reference: "price_request_id",
+    price_request_evidence: "price_request_id",
     price_history: "price_history_id",
     stock_transaction: "stock_transaction_id",
     promotion: "promotion_id",

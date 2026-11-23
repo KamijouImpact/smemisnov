@@ -3,6 +3,7 @@ BEGIN;
 DO $$
 DECLARE admin_id uuid:=gen_random_uuid(); owner_a uuid:=gen_random_uuid(); owner_b uuid:=gen_random_uuid(); owner_c uuid:=gen_random_uuid(); customer_id uuid:=gen_random_uuid();
  cat bigint; brand bigint; prod bigint; var bigint; piece bigint; box bigint; store_a bigint; store_b bigint; store_c bigint; pa bigint; pb bigint; pc bigint; stock_a bigint; req bigint; req2 bigint; tx bigint; rev bigint; event bigint; entry bigint; report bigint; no_reply_report bigint; result jsonb;
+ tea_a bigint; tea_b bigint; tea_c bigint; tea_conflict bigint; tea_request bigint;
 BEGIN
  INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES(admin_id,admin_id||'@example.test','{}'),(owner_a,owner_a||'@example.test','{}'),(owner_b,owner_b||'@example.test','{}'),(owner_c,owner_c||'@example.test','{}'),(customer_id,customer_id||'@example.test','{}');
  UPDATE public.user_account SET role='Administrator' WHERE user_id=admin_id;
@@ -53,12 +54,14 @@ BEGIN
  PERFORM public.mis_command('list_unit',jsonb_build_object('sme_id',store_b,'unit_id',piece));
  SELECT s.store_price_id INTO pb FROM public.store_price s JOIN public.store_product sp USING(store_product_id) WHERE sp.sme_id=store_b AND s.unit_id=piece;
  req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',pb,'proposed_price','22'))->>'id')::bigint;
- ASSERT (SELECT status='Pending Price Review' AND review_reason='Too Few References' AND reference_count=1 AND reference_median IS NULL AND allowed_price IS NULL FROM public.price_request WHERE price_request_id=req),'One reference is retained without median or cutoff below the minimum';
+ ASSERT (SELECT status='Pending Price Review' AND review_reason='Too Few References' FROM public.price_request WHERE price_request_id=req),'One external reference is below the configured minimum';
+ ASSERT (SELECT policy_snapshot->>'reference_count'='1' AND policy_snapshot->>'median_price' IS NULL AND policy_snapshot->>'allowed_price' IS NULL FROM public.price_request_evidence WHERE price_request_id=req),'One reference is retained without median or cutoff below the minimum';
  PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);PERFORM public.mis_command('review_price',jsonb_build_object('price_request_id',req,'decision','Approved','decision_reason','Initial review.'));
  PERFORM set_config('request.jwt.claim.sub',owner_c::text,true);PERFORM public.mis_command('list_unit',jsonb_build_object('sme_id',store_c,'unit_id',piece));
  SELECT s.store_price_id INTO pc FROM public.store_price s JOIN public.store_product sp USING(store_product_id) WHERE sp.sme_id=store_c AND s.unit_id=piece;
  req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',pc,'proposed_price','23.10'))->>'id')::bigint;
- ASSERT (SELECT status='Approved' AND reference_median=21 AND reference_count=2 AND allowed_price=23.10 AND decision_source='System' FROM public.price_request WHERE price_request_id=req),'Exact median and autoapproval';
+ ASSERT (SELECT status='Approved' AND decision_source='System' FROM public.price_request WHERE price_request_id=req),'Legacy exact comparison still auto-approves under configured policy';
+ ASSERT (SELECT (policy_snapshot->>'median_price')::numeric=21 AND policy_snapshot->>'reference_count'='2' AND (policy_snapshot->>'allowed_price')::numeric=23.10 FROM public.price_request_evidence WHERE price_request_id=req),'Configured exact-source median and cutoff are retained privately';
  ASSERT (SELECT count(*)=1 FROM public.price_history WHERE price_request_id=req),'Exactly one history row';
  req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',pc,'proposed_price','40'))->>'id')::bigint;
  ASSERT (SELECT review_reason='Above Reference' AND status='Pending Price Review' FROM public.price_request WHERE price_request_id=req),'Large increase holds';
@@ -74,7 +77,8 @@ BEGIN
  PERFORM set_config('request.jwt.claim.sub',owner_a::text,true);
  SELECT store_price_id INTO req2 FROM public.store_price WHERE store_product_id=stock_a AND unit_id=box;
  req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',req2,'proposed_price','500','owner_reason','Transport, storage, and spoilage costs.'))->>'id')::bigint;
- ASSERT (SELECT reference_count=0 AND review_reason='Too Few References' FROM public.price_request WHERE price_request_id=req),'Different packages excluded';
+ ASSERT (SELECT review_reason='Too Few References' FROM public.price_request WHERE price_request_id=req),'Different packages cannot fill the automatic rule threshold';
+ ASSERT (SELECT snapshot->>'reference_count'='0' FROM public.price_request_evidence WHERE price_request_id=req),'Different packages excluded from observed evidence';
  BEGIN PERFORM public.mis_command('submit_price',jsonb_build_object('store_price_id',req2,'proposed_price','501'));RAISE EXCEPTION 'Expected duplicate pending refusal';EXCEPTION WHEN unique_violation THEN NULL;END;
  PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);
  PERFORM public.mis_command('review_price',jsonb_build_object('price_request_id',req,'decision','Approved','decision_reason','Expenses and exact package checked; markup alone is not proof.'));
@@ -94,6 +98,12 @@ BEGIN
  -- Other / Not Listed must be reviewed and resolved to an approved selling unit.
  req:=(public.mis_command('product_request',jsonb_build_object('sme_id',store_a,'requested_details','Existing can, alternate spelling'))->>'id')::bigint;
  PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);
+ BEGIN
+  PERFORM public.mis_command('review_product',jsonb_build_object('product_request_id',req,'decision','Approved','decision_reason','Missing pack'));
+  RAISE EXCEPTION 'Expected approval without a pack to be rejected';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM<>'Choose an exact matching pack size before approving.' THEN RAISE; END IF;
+ END;
  PERFORM public.mis_command('review_product',jsonb_build_object('product_request_id',req,'decision','Approved','unit_id',piece,'decision_reason','Matched existing details.'));
  ASSERT (SELECT status='Approved' AND approved_unit_id=piece FROM public.product_request WHERE product_request_id=req),'Catalog match reviewed';
  event:=(public.mis_command('promotion',jsonb_build_object('promotion_name','Test event','starts_at',now()-interval '1 hour','ends_at',now()+interval '1 day'))->>'id')::bigint;
@@ -138,6 +148,102 @@ BEGIN
  EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'Enter a valid reason for closing without an Owner response (up to 4000 characters).' THEN RAISE; END IF; END;
  PERFORM public.mis_command('review_report',jsonb_build_object('customer_report_id',no_reply_report,'status','Closed','outcome','Insufficient Evidence','outcome_details','The available evidence is insufficient.','no_response_reason','No response received after follow-up.'));
  ASSERT (SELECT status='Closed' AND owner_response IS NULL AND owner_response_requested_at IS NOT NULL AND no_response_reason='No response received after follow-up.' FROM public.customer_report WHERE customer_report_id=no_reply_report),'Closure without response retains request and justification';
+ -- An active discount and another store's pending proposal are not approved regular prices.
+ PERFORM set_config('request.jwt.claim.sub',owner_b::text,true);
+ req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',pb,'proposed_price','40'))->>'id')::bigint;
+ ASSERT (SELECT status='Pending Price Review' FROM public.price_request WHERE price_request_id=req),'Other store has a pending increase';
+ PERFORM set_config('request.jwt.claim.sub',owner_c::text,true);
+ req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',pc,'proposed_price','21.50'))->>'id')::bigint;
+ ASSERT (SELECT previous_price=23 AND status='Approved' FROM public.price_request WHERE price_request_id=req),'A changed price captures the previous approved price';
+ ASSERT (SELECT snapshot->'references' @> '[{"approved_price":20},{"approved_price":22}]'::jsonb
+  AND (snapshot->>'median_price')::numeric=21 FROM public.price_request_evidence WHERE price_request_id=req
+ ),'Evidence uses regular approved prices even when discounts and increases are pending';
+
+ -- Separately owned products can contribute exact reference evidence.
+ PERFORM set_config('request.jwt.claim.sub',owner_b::text,true);
+ tea_b:=(public.create_store_product(jsonb_build_object(
+  'sme_id',store_b,'product_name','Evidence Citrus Tea','brand','Reference Farms',
+  'category_name','Beverages','stock_unit','bottle','package_size_value','1000',
+  'package_size_unit','mL','barcode','00012345678905'
+ ))->>'id')::bigint;
+ req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',tea_b,'proposed_price','98'))->>'id')::bigint;
+ PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);
+ PERFORM public.mis_command('review_price',jsonb_build_object('price_request_id',req,'decision','Approved','decision_reason','Initial price reviewed.'));
+ -- Older approvals stay visible as evidence even outside the configured automatic decision age.
+ UPDATE public.price_history SET effective_at=now()-interval '90 days' WHERE price_request_id=req;
+ UPDATE public.store_price SET price_updated_at=now()-interval '90 days' WHERE store_price_id=tea_b;
+
+ PERFORM set_config('request.jwt.claim.sub',owner_c::text,true);
+ tea_c:=(public.create_store_product(jsonb_build_object(
+  'sme_id',store_c,'product_name',' evidence   citrus TEA ','brand','reference farms',
+  'category_name','Drinks','stock_unit','bottle','package_size_value','1','package_size_unit','L'
+ ))->>'id')::bigint;
+ req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',tea_c,'proposed_price','100'))->>'id')::bigint;
+ ASSERT (SELECT snapshot->>'reference_count'='1' AND snapshot->>'indication'='Insufficient reference data'
+  AND snapshot->>'median_price' IS NULL FROM public.price_request_evidence WHERE price_request_id=req),
+  'One exact expired-for-policy reference remains evidence without a summary';
+ PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);
+ PERFORM public.mis_command('review_price',jsonb_build_object('price_request_id',req,'decision','Approved','decision_reason','Initial price reviewed.'));
+
+ PERFORM set_config('request.jwt.claim.sub',owner_c::text,true);
+ tea_conflict:=(public.create_store_product(jsonb_build_object(
+  'sme_id',store_c,'product_name','Evidence Citrus Tea','brand','Reference Farms',
+  'category_name','Drinks','stock_unit','bottle','package_size_value','2','package_size_unit','L',
+  'barcode','012345678905'
+ ))->>'id')::bigint;
+ req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',tea_conflict,'proposed_price','999'))->>'id')::bigint;
+ ASSERT (SELECT snapshot->>'reference_count'='0' AND snapshot->>'indication'='No confirmed product match'
+  FROM public.price_request_evidence WHERE price_request_id=req),
+  'Same barcode with conflicting package size is not a confirmed match';
+ PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);
+ PERFORM public.mis_command('review_price',jsonb_build_object('price_request_id',req,'decision','Approved','decision_reason','Initial price reviewed.'));
+
+ PERFORM set_config('request.jwt.claim.sub',owner_a::text,true);
+ tea_a:=(public.create_store_product(jsonb_build_object(
+  'sme_id',store_a,'product_name','Evidence Citrus Tea','brand','Reference Farms',
+  'category_name','Pantry','stock_unit','bottle','package_size_value','1','package_size_unit','L',
+  'barcode','012345678905'
+ ))->>'id')::bigint;
+ PERFORM public.create_store_product(jsonb_build_object(
+  'sme_id',store_a,'product_name','Evidence Citrus Tea','brand','Reference Farms',
+  'category_name','Pantry','stock_unit','bottle','package_size_value','1000','package_size_unit','mL',
+  'pack_count','6'
+ ));
+ ASSERT (SELECT count(*)=2 FROM public.store_price
+  WHERE store_product_id=(SELECT store_product_id FROM public.store_price WHERE store_price_id=tea_a)),
+  'A new pack size shares the existing product stock balance';
+ BEGIN
+  PERFORM public.create_store_product(jsonb_build_object(
+   'sme_id',store_a,'product_name','Evidence Citrus Tea','brand','Reference Farms',
+   'category_name','Pantry','stock_unit','bottle','package_size_value','1','package_size_unit','L',
+   'pack_count','6'
+  ));
+  RAISE EXCEPTION 'Expected duplicate pack refusal';
+ EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM NOT LIKE 'This pack size already exists.%' THEN RAISE; END IF;
+ END;
+ tea_request:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',tea_a,'proposed_price','105'))->>'id')::bigint;
+ ASSERT (SELECT status='Pending Price Review' AND review_reason='Initial Price Review'
+  FROM public.price_request WHERE price_request_id=tea_request
+ ),'Owner-created first price stays pending with exact evidence';
+ ASSERT (SELECT snapshot->>'participating_store_count'='3' AND snapshot->>'reference_count'='2'
+  AND (snapshot->>'minimum_price')::numeric=98 AND (snapshot->>'median_price')::numeric=99
+  AND (snapshot->>'maximum_price')::numeric=100 AND (snapshot->>'difference_from_median')::numeric=6
+  AND (snapshot->>'percent_difference_from_median')::numeric=6.06
+  AND snapshot->>'indication'='Above observed reference range'
+  AND snapshot->'references' @> '[{"matching_basis":"Exact barcode"}]'::jsonb
+  AND snapshot->'references' @> '[{"matching_basis":"Exact normalized identity"}]'::jsonb
+  FROM public.price_request_evidence WHERE price_request_id=tea_request
+ ),'Two external SME-owned approved prices produce an exact snapshot and exclude conflicting pack size';
+
+ PERFORM set_config('request.jwt.claim.sub',owner_b::text,true);
+ req:=(public.mis_command('submit_price',jsonb_build_object('store_price_id',tea_b,'proposed_price','97'))->>'id')::bigint;
+ PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);
+ PERFORM public.mis_command('review_price',jsonb_build_object('price_request_id',req,'decision','Approved','decision_reason','Updated price reviewed.'));
+ ASSERT (SELECT snapshot->'references' @> '[{"approved_price":98}]'::jsonb
+  AND NOT snapshot->'references' @> '[{"approved_price":97}]'::jsonb
+  FROM public.price_request_evidence WHERE price_request_id=tea_request
+ ),'Changing a reference price leaves the earlier submission snapshot intact';
  -- Store the fixture IDs for actual RLS checks below.
  PERFORM set_config('mis.test.admin',admin_id::text,true);
  PERFORM set_config('mis.test.owner',owner_a::text,true);PERFORM set_config('mis.test.customer',customer_id::text,true);PERFORM set_config('mis.test.store',store_a::text,true);
@@ -146,11 +252,14 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub',current_setting('mis.test.admin'),true);
 DO $$ BEGIN
  ASSERT EXISTS(SELECT 1 FROM public.price_rule WHERE status='Active'),'Administrator sees active price rule';
+ ASSERT EXISTS(SELECT 1 FROM public.price_request_evidence WHERE snapshot->>'participating_store_count'='3'),'Administrator can inspect the exact-reference snapshots';
 END $$;
 SELECT set_config('request.jwt.claim.sub',current_setting('mis.test.owner'),true);
 DO $$ BEGIN
  ASSERT (SELECT count(*)=1 FROM public.sme),'Owner sees own store only';
  ASSERT NOT EXISTS(SELECT 1 FROM public.price_rule),'Owner cannot read price rules';
+ ASSERT NOT EXISTS(SELECT 1 FROM public.price_request_evidence),'Owner cannot read reference snapshots';
+ ASSERT NOT EXISTS(SELECT 1 FROM public.price_request WHERE reference_count<>0 OR reference_median IS NOT NULL OR allowed_price IS NOT NULL),'Owner-readable requests contain no private comparison metrics';
  ASSERT EXISTS(SELECT 1 FROM public.product WHERE product_name='Test sardines'),'Owner can read the shared catalog';
  ASSERT NOT EXISTS(SELECT 1 FROM public.store_product WHERE sme_id<>current_setting('mis.test.store')::bigint),'Owner stock isolated';
  BEGIN UPDATE public.store_price SET regular_price=1;RAISE EXCEPTION 'Expected direct price-write refusal';EXCEPTION WHEN insufficient_privilege THEN NULL;END;
@@ -160,6 +269,7 @@ DO $$ BEGIN
  ASSERT NOT EXISTS(SELECT 1 FROM public.store_product),'Customer cannot read private stock';
  ASSERT NOT EXISTS(SELECT 1 FROM public.price_request),'Customer cannot read internal approvals';
  ASSERT NOT EXISTS(SELECT 1 FROM public.price_rule),'Customer cannot read price rules';
+ ASSERT NOT EXISTS(SELECT 1 FROM public.price_request_evidence),'Customer cannot read reference snapshots';
  ASSERT NOT EXISTS(SELECT 1 FROM public.product) AND NOT EXISTS(SELECT 1 FROM public.promotion),'Customer cannot read raw catalog or promotions';
  ASSERT jsonb_array_length(public.browse_products('Test sardines'))=4,'Customer can browse public catalog';
  ASSERT (SELECT count(*)=2 FROM public.customer_report),'Customer sees own reports';

@@ -3,17 +3,136 @@
 import Link from "next/link";
 import { useId, useState } from "react";
 import { ActionForm } from "./form";
+import { choice, num, text } from "./fields";
 import type { Option } from "@/lib/mis/types";
 
 export type CatalogChoice = Option & {
   packages: Option[];
+  storeIds: string[];
 };
+
+const stockUnits = ["piece", "pair", "bottle", "can", "bag", "sachet", "roll"];
+const packCounts = ["1", "2", "3", "4", "6", "10", "12", "24"];
+const commonCategories = [
+  "Food",
+  "Beverages",
+  "Household supplies",
+  "Personal care",
+  "Clothing",
+  "Electronics",
+  "School and office supplies",
+];
+
+export type StoreProductSuggestions = {
+  names: string[];
+  brands: string[];
+  variants: string[];
+  categories: string[];
+};
+
+export function AddProduct({
+  stores,
+  suggestions,
+}: {
+  stores: Option[];
+  suggestions: Record<string, StoreProductSuggestions>;
+}) {
+  const [store, setStore] = useState("");
+  const storeId = stores.length === 1 ? stores[0].value : store;
+  const storeProducts = suggestions[storeId];
+
+  return (
+    <>
+      {stores.length > 1 && (
+        <label className="standalone-field">
+          <span>Store</span>
+          <select value={storeId} onChange={(e) => setStore(e.target.value)}>
+            <option value="">Choose a store</option>
+            {stores.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {storeId && (
+        <ActionForm
+          key={storeId}
+          rpc="create_store_product"
+          hidden={{ sme_id: storeId }}
+          extraFields={[
+            "stock_unit",
+            "pack_count",
+            "pack_name",
+            "package_size_value",
+            "package_size_unit",
+            "barcode",
+          ]}
+          fields={[
+            {
+              ...text("product_name", "Product name"),
+              suggestions: storeProducts?.names,
+            },
+            {
+              ...text("category_name", "Category", false),
+              suggestions: [
+                ...new Set([
+                  ...(storeProducts?.categories ?? []),
+                  ...commonCategories,
+                ]),
+              ],
+              help: "Choose a suggested category or enter your own.",
+            },
+            {
+              ...text("brand", "Brand", false),
+              suggestions: storeProducts?.brands,
+            },
+            {
+              ...text("variant", "Variant, flavor, or model", false),
+              suggestions: storeProducts?.variants,
+            },
+            {
+              ...text("stock_unit", "Stock unit", false),
+              value: "piece",
+              suggestions: stockUnits,
+            },
+            {
+              ...num("pack_count", "Stock units per pack", false, 1),
+              value: 1,
+              suggestions: packCounts,
+            },
+            {
+              ...text("pack_name", "Pack label", false),
+              help: "Leave blank to use a label based on the unit and pack count.",
+            },
+            num(
+              "package_size_value",
+              "Weight or volume",
+              false,
+              0.001,
+              "0.001",
+            ),
+            choice(
+              "package_size_unit",
+              "Weight or volume unit",
+              ["g", "kg", "mL", "L"],
+              false,
+            ),
+            text("barcode", "Barcode", false),
+          ]}
+          submit="Save product"
+        />
+      )}
+    </>
+  );
+}
 
 function normalizeSearch(value: string) {
   return value.normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();
 }
 
-export function AddProduct({
+export function AddLegacyPack({
   stores,
   choices,
   addedUnits,
@@ -28,10 +147,14 @@ export function AddProduct({
   const [selectedProduct, setSelectedProduct] = useState("");
   const storeId = stores.length === 1 ? stores[0].value : selectedStore;
   const terms = normalizeSearch(search).split(/\s+/).filter(Boolean);
-  const matches = choices.filter((choice) =>
-    terms.every((term) => normalizeSearch(choice.label).includes(term)),
+  const matches = choices.filter(
+    (choice) =>
+      choice.storeIds.includes(String(storeId)) &&
+      terms.every((term) => normalizeSearch(choice.label).includes(term)),
   );
-  const product = matches.find((choice) => choice.value === selectedProduct);
+  const product =
+    matches.find((choice) => choice.value === selectedProduct) ??
+    (matches.length === 1 ? matches[0] : undefined);
   const alreadyAdded = addedUnits[storeId] ?? [];
   const packages = product?.packages.filter(
     (pack) => !alreadyAdded.includes(String(pack.value)),
@@ -39,9 +162,7 @@ export function AddProduct({
 
   return (
     <>
-      {stores.length === 1 ? (
-        <p className="muted-text">Adding to {stores[0].label}</p>
-      ) : (
+      {stores.length > 1 && (
         <label className="standalone-field">
           <span id={`${id}-store`}>Store</span>
           <select
@@ -60,7 +181,7 @@ export function AddProduct({
       )}
       <div className="fields">
         <label>
-          <span>Search the catalog</span>
+          <span>Search your existing products</span>
           <input
             type="search"
             value={search}
@@ -85,10 +206,9 @@ export function AddProduct({
           </select>
         </label>
       </div>
-      {matches.length === 0 && (
+      {storeId && matches.length === 0 && (
         <p className="notice" role="status">
-          No matching products. Try another search or request a catalog item
-          below.
+          No matching products with additional pack sizes.
         </p>
       )}
       {storeId &&

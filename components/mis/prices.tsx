@@ -1,17 +1,147 @@
 import type { ComponentProps } from "react";
 import Link from "next/link";
 import { ActionForm } from "./form";
+import { AdminPriceForm, OwnerPriceForm } from "./price-forms";
 import { Panel, Table, Status } from "./table";
+import { Props, area, num, optionField, select } from "./fields";
 import {
-  Props,
-  area,
-  decisionFields,
-  num,
-  optionField,
-  select,
-} from "./fields";
-import { date, find, label, peso } from "@/lib/mis/types";
-export function Prices({ db, admin }: Props) {
+  date,
+  find,
+  label,
+  peso,
+  type Database,
+  type Row,
+} from "@/lib/mis/types";
+import { simpleText } from "@/lib/mis/words";
+
+function priceLabel(value: Row[string]) {
+  return value == null ? "No approved price yet" : peso(value);
+}
+
+type PriceEvidence = {
+  reference_count: number;
+  participating_store_count: number;
+  minimum_price: number | null;
+  median_price: number | null;
+  maximum_price: number | null;
+  indication: string;
+  recorded_at: string;
+  historical: boolean;
+  references: Row[];
+};
+
+function percentChange(value: number, basis: number) {
+  return new Intl.NumberFormat("en-PH", {
+    style: "percent",
+    maximumFractionDigits: 2,
+  }).format((value - basis) / basis);
+}
+
+function ExactEvidence({ db, request }: { db: Database; request: Row }) {
+  const snapshot = find(
+    db,
+    "price_request_evidence",
+    request.price_request_id,
+    "price_request_id",
+  ).snapshot as unknown as PriceEvidence | undefined;
+  const proposed = Number(request.proposed_price);
+  return (
+    <section className="extra-fields" aria-label="Exact price references">
+      <h3>Exact price references</h3>
+      {!snapshot ? (
+        <p>No saved comparison is available.</p>
+      ) : (
+        <>
+          <p>
+            <strong>{snapshot.indication}</strong>
+          </p>
+          <p>
+            Matched stores including the store under review{" "}
+            <strong>{snapshot.participating_store_count}</strong> · Other stores
+            with approved prices <strong>{snapshot.reference_count}</strong>
+          </p>
+          {snapshot.median_price != null && (
+            <p>
+              Observed range {peso(snapshot.minimum_price)}–
+              {peso(snapshot.maximum_price)}
+              {" · "}Median {peso(snapshot.median_price)}
+              {" · "}Difference from median{" "}
+              {peso(proposed - snapshot.median_price)}
+              {snapshot.median_price > 0 &&
+                ` (${percentChange(proposed, snapshot.median_price)})`}
+            </p>
+          )}
+          <p className="muted-text">
+            {snapshot.historical
+              ? "Legacy comparison saved"
+              : "Comparison saved"}{" "}
+            {date(snapshot.recorded_at)}
+          </p>
+          <Table
+            rows={snapshot.references}
+            empty="No exact references were saved for this request."
+            columns={[
+              {
+                key: "store_name",
+                label: "Other store",
+                render: (reference) =>
+                  reference.store_name || `Store #${reference.sme_id}`,
+              },
+              {
+                key: "approved_price",
+                label: "Approved price",
+                render: (reference) => peso(reference.approved_price),
+              },
+              {
+                key: "price_updated_at",
+                label: "Date approved",
+                render: (reference) => date(reference.price_updated_at),
+              },
+              { key: "matching_basis", label: "Match basis" },
+            ]}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+function PriceReviewDetails({ db, request }: { db: Database; request: Row }) {
+  const current = find(db, "store_price", request.store_price_id).regular_price;
+  const owner = find(db, "user_account", request.submitted_by);
+  const proposed = Number(request.proposed_price);
+  return (
+    <>
+      <section className="extra-fields" aria-label="Request details">
+        <p>
+          <strong>Current approved price</strong> {priceLabel(current)} ·{" "}
+          <strong>Proposed price</strong> {peso(proposed)}
+        </p>
+        {current != null && Number(current) > 0 && (
+          <p>
+            Change {peso(proposed - Number(current))} (
+            {percentChange(proposed, Number(current))})
+          </p>
+        )}
+        <p>
+          {request.review_reason && `${simpleText(request.review_reason)} · `}
+          Submitted {date(request.submitted_at)}
+          {owner.full_name && ` by ${owner.full_name}`}
+        </p>
+        <p>
+          <strong>Owner’s reason</strong>{" "}
+          {request.owner_reason || "No reason provided"}
+        </p>
+      </section>
+      <ExactEvidence db={db} request={request} />
+    </>
+  );
+}
+export function Prices({
+  db,
+  admin,
+  requestedItem,
+}: Props & { requestedItem?: string }) {
   const sellingOptions = optionField(db);
   const requests = [...db.price_request].reverse();
   const pending = requests.filter((r) => r.status === "Pending Price Review");
@@ -25,12 +155,12 @@ export function Prices({ db, admin }: Props) {
     },
     {
       key: "previous_price",
-      label: "Current price",
-      render: (r) => peso(r.previous_price),
+      label: "Price when requested",
+      render: (r) => priceLabel(r.previous_price),
     },
     {
       key: "proposed_price",
-      label: "New price",
+      label: "Proposed price",
       render: (r) => peso(r.proposed_price),
     },
     {
@@ -40,17 +170,6 @@ export function Prices({ db, admin }: Props) {
     },
     { key: "review_reason", label: "Why it needs review" },
     { key: "owner_reason", label: "Owner’s reason" },
-    { key: "reference_count", label: "Matching stores" },
-    {
-      key: "reference_median",
-      label: "Middle comparison price",
-      render: (r) => peso(r.reference_median),
-    },
-    {
-      key: "allowed_price",
-      label: "Automatic approval limit",
-      render: (r) => peso(r.allowed_price),
-    },
     { key: "decision_source", label: "Decided by" },
     { key: "decision_reason", label: "Decision reason" },
     {
@@ -72,25 +191,34 @@ export function Prices({ db, admin }: Props) {
           title="Request a price"
           description="Your current price stays in use until a change is approved. A new product appears after its first price is approved."
         >
-          <ActionForm
-            action="submit_price"
-            fields={[
-              sellingOptions,
-              num("proposed_price", "New selling price", true, 0.01, "0.01"),
-              area("owner_reason", "Why this price?", false),
-              select(
-                "previous_request_id",
-                "Earlier request to correct (optional)",
-                db.price_request.filter((r) =>
-                  ["Rejected", "Withdrawn"].includes(String(r.status)),
-                ),
-                "price_request_id",
-                (r) =>
-                  `#${r.price_request_id} · ${label(db, r.store_price_id)}`,
-                false,
-              ),
-            ]}
-            submit="Send price request"
+          <OwnerPriceForm
+            key={requestedItem}
+            requestedItem={requestedItem}
+            listings={(sellingOptions.options ?? []).map((option) => {
+              const listing = find(db, "store_price", option.value);
+              const item = find(db, "store_product", listing.store_product_id);
+              const variant = find(db, "product_variation", item.variation_id);
+              const product = find(db, "product", variant.product_id);
+              return {
+                ...option,
+                currentPrice: priceLabel(listing.regular_price),
+                firstPrice: listing.regular_price == null,
+                firstRequiresReview:
+                  listing.regular_price == null && product.sme_id != null,
+                previous: past
+                  .filter(
+                    (request) =>
+                      request.store_price_id === listing.store_price_id &&
+                      ["Rejected", "Withdrawn"].includes(
+                        String(request.status),
+                      ),
+                  )
+                  .map((request) => ({
+                    value: String(request.price_request_id),
+                    label: `#${request.price_request_id} · ${peso(request.proposed_price)} · ${request.status}`,
+                  })),
+              };
+            })}
           />
         </Panel>
       )}
@@ -121,19 +249,12 @@ export function Prices({ db, admin }: Props) {
           title="Approve or reject a price"
           description="Check the product, pack size, comparison details, and Owner’s reason before deciding."
         >
-          <ActionForm
-            action="review_price"
-            fields={[
-              select(
-                "price_request_id",
-                "Pending request",
-                pending,
-                "price_request_id",
-                (r) =>
-                  `#${r.price_request_id} · ${label(db, r.store_price_id)} · ${peso(r.proposed_price)}`,
-              ),
-              ...decisionFields,
-            ]}
+          <AdminPriceForm
+            requests={pending.map((request) => ({
+              value: String(request.price_request_id),
+              label: `#${request.price_request_id} · ${label(db, request.store_price_id)} · ${peso(request.proposed_price)}`,
+              details: <PriceReviewDetails db={db} request={request} />,
+            }))}
           />
         </Panel>
       ) : !admin && pending.length > 0 ? (
@@ -182,45 +303,23 @@ export function Prices({ db, admin }: Props) {
             "decision_reason",
           ]}
           rows={past}
-          columns={columns}
+          columns={
+            admin
+              ? [
+                  ...columns,
+                  {
+                    key: "saved_evidence",
+                    label: "Exact comparison",
+                    render: (request) => (
+                      <ExactEvidence db={db} request={request} />
+                    ),
+                  },
+                ]
+              : columns
+          }
           empty="No completed or withdrawn price requests yet."
         />
       </Panel>
-      {admin && (
-        <Panel
-          collapsible
-          title="Prices used for comparison"
-          description="These prices were saved when each request was checked."
-        >
-          <Table
-            rows={db.price_reference}
-            columns={[
-              { key: "price_request_id", label: "Request" },
-              {
-                key: "reference_sme_id",
-                label: "Other store",
-                render: (r) =>
-                  String(find(db, "sme", r.reference_sme_id).store_name),
-              },
-              { key: "price_history_id", label: "Price record" },
-              {
-                key: "source_price",
-                label: "Compared price",
-                render: (r) =>
-                  peso(find(db, "price_history", r.price_history_id).new_price),
-              },
-              {
-                key: "source_date",
-                label: "Date approved",
-                render: (r) =>
-                  date(
-                    find(db, "price_history", r.price_history_id).effective_at,
-                  ),
-              },
-            ]}
-          />
-        </Panel>
-      )}
       <Panel collapsible title="Past prices">
         <Table
           rows={[...db.price_history].reverse()}

@@ -175,7 +175,7 @@ export function WorkspacePage({
     products: <Products {...props} />,
     catalog: <Catalog {...props} />,
     "product-requests": <ProductRequests {...props} />,
-    prices: <Prices {...props} />,
+    prices: <Prices {...props} requestedItem={requestedItem} />,
     rules: <Rules {...props} />,
     stock: <Stock {...props} />,
     promotions: <Promotions {...props} />,

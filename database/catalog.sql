@@ -55,12 +55,23 @@ BEGIN
   RAISE EXCEPTION 'An active product needs an active option and pack size. Archive the product first or add a replacement.';
  END IF;
  ELSIF action='review_product' THEN
- SELECT * INTO STRICT req FROM public.product_request WHERE product_request_id=(a->>'product_request_id')::bigint FOR UPDATE;
+ SELECT * INTO req FROM public.product_request WHERE product_request_id=(a->>'product_request_id')::bigint FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'That product request is unavailable.'; END IF;
  IF req.status<>'Pending Product Review' THEN RAISE EXCEPTION 'This request is already decided.'; END IF;
- new_status:=a->>'decision'; IF new_status NOT IN ('Approved','Rejected') THEN RAISE EXCEPTION 'Choose Approved or Rejected.'; END IF;
+ new_status:=a->>'decision'; IF coalesce(new_status,'') NOT IN ('Approved','Rejected') THEN RAISE EXCEPTION 'Choose Approved or Rejected.'; END IF;
  IF new_status='Approved' THEN
- SELECT variation_id,unit_id INTO STRICT v,u FROM public.product_unit WHERE unit_id=(a->>'unit_id')::bigint AND status='Active';
- IF NOT EXISTS(SELECT 1 FROM public.product_variation pv JOIN public.product p USING(product_id) JOIN public.category c USING(category_id) LEFT JOIN public.brand b USING(brand_id) WHERE pv.variation_id=v AND pv.status='Active' AND p.status='Active' AND c.status='Active' AND (b.brand_id IS NULL OR b.status='Active')) THEN RAISE EXCEPTION 'Choose approved active product details.'; END IF;
+ IF coalesce(a->>'unit_id','') !~ '^[0-9]{1,18}$' THEN
+  RAISE EXCEPTION 'Choose an exact matching pack size before approving.';
+ END IF;
+ SELECT pu.variation_id,pu.unit_id INTO v,u
+ FROM public.product_unit pu JOIN public.product_variation pv USING(variation_id)
+ JOIN public.product p USING(product_id) JOIN public.category c USING(category_id)
+ LEFT JOIN public.brand b USING(brand_id)
+ WHERE pu.unit_id=(a->>'unit_id')::bigint AND pu.status='Active'
+ AND pv.status='Active' AND p.status='Active' AND c.status='Active'
+ AND (b.brand_id IS NULL OR b.status='Active')
+ AND (p.sme_id IS NULL OR p.sme_id=req.sme_id);
+ IF NOT FOUND THEN RAISE EXCEPTION 'Choose an active matching pack size for this store.'; END IF;
  INSERT INTO public.store_product(sme_id,variation_id) VALUES(req.sme_id,v) ON CONFLICT(sme_id,variation_id) DO UPDATE SET status='Active' RETURNING store_product_id INTO sp;
  INSERT INTO public.store_price(store_product_id,unit_id) VALUES(sp,u) ON CONFLICT(store_product_id,unit_id) DO UPDATE SET status='Active';
  END IF;

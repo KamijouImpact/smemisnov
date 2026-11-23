@@ -1,20 +1,23 @@
 import Link from "next/link";
 import type { ComponentProps } from "react";
 import { ActionForm } from "./form";
-import { AddProduct, type CatalogChoice } from "./add-product";
-import { Panel, Table, Status } from "./table";
 import {
-  Props,
-  area,
-  choice,
-  decisionFields,
-  num,
-  select,
-  storeField,
-  text,
-  unitField,
-} from "./fields";
-import { type Database, date, find, label, peso } from "@/lib/mis/types";
+  AddLegacyPack,
+  AddProduct,
+  type CatalogChoice,
+  type StoreProductSuggestions,
+} from "./add-product";
+import { ProductRequestReview } from "./product-request-review";
+import { Panel, Table, Status } from "./table";
+import { Props, area, choice, num, select, text } from "./fields";
+import {
+  type Database,
+  type Row,
+  date,
+  find,
+  label,
+  peso,
+} from "@/lib/mis/types";
 function activeCatalogUnits(db: Database) {
   return db.product_unit.flatMap((unit) => {
     if (unit.status !== "Active") return [];
@@ -31,18 +34,80 @@ function activeCatalogUnits(db: Database) {
   });
 }
 
+function uniqueSuggestions(values: Row[string][]) {
+  return [
+    ...new Set(
+      values.filter(
+        (value): value is string => typeof value === "string" && !!value,
+      ),
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+}
+
+function productSuggestions(
+  db: Database,
+  storeId: string,
+): StoreProductSuggestions {
+  const items = db.store_product
+    .filter((item) => String(item.sme_id) === storeId)
+    .map((item) => {
+      const variation = find(db, "product_variation", item.variation_id);
+      const product = find(db, "product", variation.product_id);
+      return { product, variation };
+    });
+  return {
+    names: uniqueSuggestions(items.map(({ product }) => product.product_name)),
+    brands: uniqueSuggestions(
+      items.map(
+        ({ product }) =>
+          product.store_brand_name ||
+          find(db, "brand", product.brand_id).brand_name,
+      ),
+    ),
+    variants: uniqueSuggestions(
+      items.map(({ variation }) =>
+        variation.variation_name === "Standard"
+          ? null
+          : variation.variation_name,
+      ),
+    ),
+    categories: uniqueSuggestions(
+      db.category
+        .filter(
+          (category) =>
+            String(category.sme_id) === storeId && category.status === "Active",
+        )
+        .map((category) => category.category_name),
+    ),
+  };
+}
+
 export function Products({ db, admin }: Props) {
   const activeStores = db.sme.filter((s) => s.status === "Active");
   const stores = activeStores.map((store) => ({
     value: String(store.sme_id),
     label: String(store.store_name),
   }));
-  const availableUnits = activeCatalogUnits(db);
   const choices = new Map<string, CatalogChoice>();
   const addedUnits: Record<string, string[]> = {};
+  const suggestions: Record<string, StoreProductSuggestions> = {};
   if (!admin && activeStores.length) {
-    for (const { unit, variation, product, brand } of availableUnits) {
+    for (const store of stores)
+      suggestions[store.value] = productSuggestions(db, store.value);
+    const activeStoreIds = new Set(stores.map(({ value }) => value));
+    const storesByVariation = new Map<string, string[]>();
+    for (const item of db.store_product) {
+      const storeId = String(item.sme_id);
+      if (!activeStoreIds.has(storeId)) continue;
+      const variationId = String(item.variation_id);
+      const owners = storesByVariation.get(variationId) ?? [];
+      owners.push(storeId);
+      storesByVariation.set(variationId, owners);
+    }
+    for (const { unit, variation, product, brand } of activeCatalogUnits(db)) {
       const value = String(variation.variation_id);
+      const storeIds = storesByVariation.get(value);
+      if (product.sme_id != null || !storeIds) continue;
       let choice = choices.get(value);
       if (!choice) {
         choice = {
@@ -67,6 +132,7 @@ export function Products({ db, admin }: Props) {
             .filter(Boolean)
             .join(" · "),
           packages: [],
+          storeIds,
         };
         choices.set(value, choice);
       }
@@ -82,9 +148,15 @@ export function Products({ db, admin }: Props) {
       (addedUnits[storeId] ??= []).push(String(listing.unit_id));
     }
   }
-  const catalogChoices = [...choices.values()].sort((a, b) =>
-    a.label.localeCompare(b.label),
-  );
+  const legacyChoices = [...choices.values()]
+    .filter((choice) =>
+      choice.storeIds.some((storeId) =>
+        choice.packages.some(
+          (pack) => !addedUnits[storeId]?.includes(String(pack.value)),
+        ),
+      ),
+    )
+    .sort((a, b) => a.label.localeCompare(b.label));
   const editableListings = db.store_price.filter((r) => {
     const store = find(db, "store_product", r.store_product_id).sme_id;
     return activeStores.some((s) => s.sme_id === store);
@@ -103,32 +175,19 @@ export function Products({ db, admin }: Props) {
         <>
           <Panel
             title="Add a product"
-            description="Find the product and choose the pack size you sell. You can request a price and record stock after adding it."
+            description="Choose the category and pack details where you can. Brand, variant, size, and barcode help match the same item across stores."
           >
-            <AddProduct
-              stores={stores}
-              choices={catalogChoices}
-              addedUnits={addedUnits}
-            />
+            <AddProduct stores={stores} suggestions={suggestions} />
           </Panel>
-          <Panel
-            collapsible
-            open={catalogChoices.length === 0}
-            title="Product not listed?"
-            description="Include the brand, size, and quantity per pack so the Administrator can match it."
-          >
-            <ActionForm
-              action="product_request"
-              hidden={
-                stores.length === 1 ? { sme_id: stores[0].value } : undefined
-              }
-              fields={[
-                ...(stores.length > 1 ? [storeField(db)] : []),
-                area("requested_details", "Product details"),
-              ]}
-              submit="Send product request"
-            />
-          </Panel>
+          {legacyChoices.length > 0 && (
+            <Panel collapsible title="Add a pack to an existing product">
+              <AddLegacyPack
+                stores={stores}
+                choices={legacyChoices}
+                addedUnits={addedUnits}
+              />
+            </Panel>
+          )}
         </>
       )}
       <Panel collapsible={admin} title="Store products">
@@ -170,6 +229,24 @@ export function Products({ db, admin }: Props) {
                 />
               ),
             },
+            ...(!admin
+              ? [
+                  {
+                    key: "price_action",
+                    label: "Price action",
+                    render: (r: Row) =>
+                      r.status === "Active" && editableListings.includes(r) ? (
+                        <Link
+                          href={`/workspace/prices?item=${r.store_price_id}`}
+                        >
+                          {r.regular_price === null
+                            ? "Set price"
+                            : "Change price"}
+                        </Link>
+                      ) : null,
+                  },
+                ]
+              : []),
           ]}
         />
       </Panel>
@@ -198,7 +275,9 @@ export function Products({ db, admin }: Props) {
           />
         </Panel>
       )}
-      {!admin && <ProductRequests db={db} admin={false} />}
+      {!admin && db.product_request.length > 0 && (
+        <ProductRequests db={db} admin={false} />
+      )}
     </>
   );
 }
@@ -209,9 +288,7 @@ export function ProductRequests({ db, admin }: Props) {
   const reviewedRequests = db.product_request.filter(
     (request) => request.status !== "Pending Product Review",
   );
-  const catalogUnits = admin
-    ? activeCatalogUnits(db).map(({ unit }) => unit)
-    : [];
+  const catalogUnits = admin ? activeCatalogUnits(db) : [];
   const columns: ComponentProps<typeof Table>["columns"] = [
     { key: "product_request_id", label: "Request" },
     {
@@ -255,20 +332,17 @@ export function ProductRequests({ db, admin }: Props) {
             If the pack size is missing,{" "}
             <Link href="/workspace/catalog">add it to the catalog</Link> first.
           </p>
-          <ActionForm
-            action="review_product"
-            fields={[
-              select(
-                "product_request_id",
-                "Request",
-                pendingRequests,
-                "product_request_id",
-                (r) => `#${r.product_request_id} · ${r.requested_details}`,
-              ),
-              ...decisionFields,
-              unitField({ ...db, product_unit: catalogUnits }, false),
-            ]}
-            submit="Save decision"
+          <ProductRequestReview
+            requests={pendingRequests.map((request) => ({
+              value: String(request.product_request_id),
+              label: `#${request.product_request_id} · ${request.requested_details}`,
+              storeId: String(request.sme_id),
+            }))}
+            packs={catalogUnits.map(({ unit, product }) => ({
+              value: String(unit.unit_id),
+              label: label(db, unit.unit_id, "unit"),
+              storeId: product.sme_id ? String(product.sme_id) : null,
+            }))}
           />
         </Panel>
       )}
@@ -281,7 +355,22 @@ export function ProductRequests({ db, admin }: Props) {
   );
 }
 
-export function Catalog({ db }: Props) {
+export function Catalog({ db: workspace }: Props) {
+  const products = workspace.product.filter((product) => !product.sme_id);
+  const productIds = new Set(products.map((product) => product.product_id));
+  const variations = workspace.product_variation.filter((option) =>
+    productIds.has(option.product_id),
+  );
+  const variationIds = new Set(variations.map((option) => option.variation_id));
+  const db: Database = {
+    ...workspace,
+    category: workspace.category.filter((category) => !category.sme_id),
+    product: products,
+    product_variation: variations,
+    product_unit: workspace.product_unit.filter((unit) =>
+      variationIds.has(unit.variation_id),
+    ),
+  };
   return (
     <>
       <p className="notice">
@@ -525,7 +614,7 @@ export function Catalog({ db }: Props) {
           submit="Save visibility"
         />
       </Panel>
-      <Products db={db} admin />
+      <Products db={workspace} admin />
     </>
   );
 }

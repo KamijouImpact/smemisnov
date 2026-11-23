@@ -3,6 +3,7 @@ const names: Record<string, string> = {
   "Pending Price Review": "Waiting for review",
   "Pending Product Review": "Waiting for review",
   Pending: "Waiting for approval",
+  "Initial Price Review": "First price needs Administrator approval",
   "Above Reference": "Higher than matching prices",
   "Too Few References": "Not enough matching prices",
   "No Active Rule": "Automatic approval is not set up",

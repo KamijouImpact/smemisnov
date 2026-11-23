@@ -72,6 +72,11 @@ CREATE TABLE price_request (
  previous_request_id INTEGER REFERENCES price_request(price_request_id)
 );
 CREATE UNIQUE INDEX one_pending_price ON price_request(store_price_id) WHERE status='Pending Price Review';
+CREATE TABLE price_request_evidence (
+ price_request_id bigint PRIMARY KEY REFERENCES public.price_request(price_request_id),
+ snapshot jsonb NOT NULL,
+ policy_snapshot jsonb NOT NULL
+);
 CREATE TABLE price_reference (
  price_request_id INTEGER NOT NULL REFERENCES price_request(price_request_id), reference_sme_id INTEGER NOT NULL REFERENCES sme(sme_id),
  price_history_id INTEGER NOT NULL, PRIMARY KEY(price_request_id,reference_sme_id)
