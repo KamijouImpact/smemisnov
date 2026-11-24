@@ -2,9 +2,14 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { type ComponentProps } from "react";
+import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
-export function LogoutButton() {
+export function LogoutButton({
+  className,
+  variant,
+}: Pick<ComponentProps<typeof Button>, "className" | "variant">) {
   const router = useRouter();
 
   const logout = async () => {
@@ -14,7 +19,12 @@ export function LogoutButton() {
   };
 
   return (
-    <Button type="button" className="min-h-11" onClick={logout}>
+    <Button
+      type="button"
+      className={cn("min-h-11", className)}
+      variant={variant}
+      onClick={logout}
+    >
       Log out
     </Button>
   );
