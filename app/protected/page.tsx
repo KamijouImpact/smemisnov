@@ -6,32 +6,20 @@ import { SidebarLayout } from "@/components/sidebar-layout";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
-
-const accountNames = new Map([
-  ["owner", "Store Owner"],
-  ["customer", "Customer"],
-  ["admin", "Administrator"],
-]);
+import { getViewer } from "@/lib/viewer";
 
 async function Account() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
-  if (error || !data?.claims) redirect("/auth/login");
-
-  const { data: account } = await supabase
-    .from("account_roles")
-    .select("account_type")
-    .eq("user_id", data.claims.sub)
-    .single();
-  const accountName = accountNames.get(account?.account_type);
+  const viewer = await getViewer();
+  if (!viewer) redirect("/auth/login");
+  const accountName = viewer.roleName;
 
   return (
     <SidebarLayout
       onAccountPage
+      canManageAccounts={viewer.role === "admin"}
       accountMenu={
         <AccountMenu
-          account={{ email: data.claims.email, role: accountName }}
+          account={{ email: viewer.email, role: accountName }}
           onAccountPage
         />
       }
@@ -50,7 +38,7 @@ async function Account() {
           <dl className="space-y-3 text-sm">
             <div>
               <dt className="text-muted-foreground">Email</dt>
-              <dd className="break-all font-medium">{data.claims.email}</dd>
+              <dd className="break-all font-medium">{viewer.email}</dd>
             </div>
             {accountName && (
               <div>

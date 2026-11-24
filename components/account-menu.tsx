@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { LogoutButton } from "./logout-button";
-import { createClient } from "@/lib/supabase/server";
-import { hasEnvVars } from "@/lib/utils";
 
 type Account = { email?: string; role?: string };
 
@@ -88,17 +86,5 @@ function AccountLink({
     >
       {children}
     </Link>
-  );
-}
-
-export async function HeaderAccountMenu() {
-  if (!hasEnvVars) return <AccountMenu />;
-
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  return (
-    <AccountMenu
-      account={data?.claims ? { email: data.claims.email } : undefined}
-    />
   );
 }

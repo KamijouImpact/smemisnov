@@ -17,10 +17,14 @@ export function SidebarLayout({
   children,
   accountMenu,
   onAccountPage = false,
+  canManageAccounts = false,
+  onManageAccountsPage = false,
 }: {
   children: ReactNode;
   accountMenu: ReactNode;
   onAccountPage?: boolean;
+  canManageAccounts?: boolean;
+  onManageAccountsPage?: boolean;
 }) {
   const sidebarId = useId();
   const isWide = useSyncExternalStore(
@@ -30,6 +34,9 @@ export function SidebarLayout({
   );
   const [sidebarOverride, setSidebarOverride] = useState<boolean | null>(null);
   const open = sidebarOverride ?? isWide;
+
+  const navLink =
+    "flex min-h-11 items-center rounded-md px-3 text-xs font-semibold tracking-wide hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[current=page]:bg-accent";
 
   return (
     <>
@@ -76,11 +83,20 @@ export function SidebarLayout({
           hidden={!open}
           className="border-b bg-muted/30 px-4 py-3 md:border-b-0 md:border-r md:py-5"
         >
-          <nav aria-label="Sidebar">
+          <nav aria-label="Sidebar" className="space-y-1">
+            {canManageAccounts && (
+              <Link
+                href="/protected/manage-accounts"
+                aria-current={onManageAccountsPage ? "page" : undefined}
+                className={navLink}
+              >
+                MANAGE ACCOUNTS
+              </Link>
+            )}
             <Link
               href="/protected"
               aria-current={onAccountPage ? "page" : undefined}
-              className="flex min-h-11 items-center rounded-md px-3 text-xs font-semibold tracking-wide hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[current=page]:bg-accent"
+              className={navLink}
             >
               ACCOUNT
             </Link>
