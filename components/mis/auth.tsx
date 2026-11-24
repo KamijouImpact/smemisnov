@@ -106,7 +106,6 @@ export function AuthPortal({
         <Link className="brand" href="/">
           SME MIS
         </Link>
-        <Link href="/">Browse products</Link>
       </div>
       <main className="auth-panel">
         <div className="auth-box">

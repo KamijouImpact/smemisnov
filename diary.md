@@ -2,6 +2,10 @@
 
 Read the newest entry first. For setup, workspace locations and role workflows, start with the [contributor guide](AGENTS.md). Add dated entries for changes that affect how people use, operate or develop the system. Include the decision, verification and outstanding work. Keep account credentials and customer or store records out of the diary.
 
+## 2026-11-24 — Remove redundant navigation
+
+Removed the Browse products link from the homepage and the shared login and registration screen. The SME MIS brand still links to the homepage.
+
 ## 2026-11-24 — Registration from the public homepage
 
 The guest header previously exposed only Log in. Register now opens the existing sign-up form directly beside Log in. Checked the header destination against the sign-up route and its registration mode.

@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { Account } from "@/lib/mis/types";
 import { Logout } from "./logout";
-export function Header({ user }: { user: Account | null }) {
+export function Header({
+  user,
+  showBrowseLink = true,
+}: {
+  user: Account | null;
+  showBrowseLink?: boolean;
+}) {
   const ownerWorkspace = user?.role === "Owner";
   return (
     <header className="topbar">
@@ -17,7 +23,9 @@ export function Header({ user }: { user: Account | null }) {
         </span>
       </Link>
       <nav aria-label="Main navigation">
-        {!ownerWorkspace && <Link href="/">Browse products</Link>}
+        {showBrowseLink && !ownerWorkspace && (
+          <Link href="/">Browse products</Link>
+        )}
         {user ? (
           <>
             <Link

@@ -27,7 +27,7 @@ export default async function Browse({
   );
   return (
     <>
-      <Header user={user} />
+      <Header user={user} showBrowseLink={false} />
       <main className="public-main">
         <section className="browse-heading">
           <h1>Browse products</h1>
