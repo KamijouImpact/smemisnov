@@ -27,49 +27,49 @@ async function Account() {
   const accountName = accountNames.get(account?.account_type);
 
   return (
-    <>
-      <SiteHeader>
+    <SidebarLayout
+      onAccountPage
+      accountMenu={
         <AccountMenu
           account={{ email: data.claims.email, role: accountName }}
           onAccountPage
         />
-      </SiteHeader>
-      <SidebarLayout>
-        <h1 className="mb-6 text-2xl font-semibold tracking-tight sm:text-3xl">
-          {accountName ? `${accountName} account` : "Account"}
-        </h1>
-        {!accountName && (
-          <p role="alert" className="mb-4 text-sm text-destructive">
-            Could not load your account type.
-          </p>
-        )}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <Card className="min-w-0 space-y-4 p-5 sm:p-6">
-            <h2 className="font-semibold">Account details</h2>
-            <dl className="space-y-3 text-sm">
-              <div>
-                <dt className="text-muted-foreground">Email</dt>
-                <dd className="break-all font-medium">{data.claims.email}</dd>
-              </div>
-              {accountName && (
-                <div>
-                  <dt className="text-muted-foreground">Account type</dt>
-                  <dd className="font-medium">{accountName}</dd>
-                </div>
-              )}
-            </dl>
-          </Card>
-          <Card className="space-y-4 p-5 sm:p-6">
-            <h2 className="font-semibold">Security</h2>
-            <div className="flex flex-wrap gap-2">
-              <Button asChild variant="outline" className="min-h-11">
-                <Link href="/auth/update-password">Change password</Link>
-              </Button>
+      }
+    >
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight sm:text-3xl">
+        {accountName ? `${accountName} account` : "Account"}
+      </h1>
+      {!accountName && (
+        <p role="alert" className="mb-4 text-sm text-destructive">
+          Could not load your account type.
+        </p>
+      )}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Card className="min-w-0 space-y-4 p-5 sm:p-6">
+          <h2 className="font-semibold">Account details</h2>
+          <dl className="space-y-3 text-sm">
+            <div>
+              <dt className="text-muted-foreground">Email</dt>
+              <dd className="break-all font-medium">{data.claims.email}</dd>
             </div>
-          </Card>
-        </div>
-      </SidebarLayout>
-    </>
+            {accountName && (
+              <div>
+                <dt className="text-muted-foreground">Account type</dt>
+                <dd className="font-medium">{accountName}</dd>
+              </div>
+            )}
+          </dl>
+        </Card>
+        <Card className="space-y-4 p-5 sm:p-6">
+          <h2 className="font-semibold">Security</h2>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="min-h-11">
+              <Link href="/auth/update-password">Change password</Link>
+            </Button>
+          </div>
+        </Card>
+      </div>
+    </SidebarLayout>
   );
 }
 
