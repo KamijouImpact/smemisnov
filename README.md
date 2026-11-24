@@ -11,3 +11,5 @@ A minimal Next.js app with Supabase Auth.
 The public entry point is `app/page.tsx`. Auth screens are under `app/auth/`, and the authenticated account page is under `app/protected/`. Run `npm run build` before deploying.
 
 The homepage is the public product catalog. Guests can open it without signing in. Keep new screens usable on phones, tablets and desktops, and check narrow widths before publishing.
+
+Registration asks for an account type, email, and password. Apply the migrations in `supabase/migrations/` to a development Supabase project before testing registration. The database assigns the Store Owner or Customer role at signup and allows each account to read its own role.

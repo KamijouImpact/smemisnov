@@ -30,10 +30,18 @@ export function CredentialsForm({ mode }: { mode: "login" | "register" }) {
     try {
       const supabase = createClient();
       if (registering) {
+        const accountType = fields.get("account_type");
+        if (accountType !== "owner" && accountType !== "customer") {
+          setError("Choose an account type.");
+          return;
+        }
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/protected` },
+          options: {
+            data: { account_type: accountType },
+            emailRedirectTo: `${window.location.origin}/protected`,
+          },
         });
         if (error) throw error;
         router.replace(data.session ? "/protected" : "/auth/sign-up-success");
@@ -62,6 +70,31 @@ export function CredentialsForm({ mode }: { mode: "login" | "register" }) {
       <Card className="space-y-5 p-5 sm:p-6">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         <form onSubmit={submit} className="space-y-4" aria-busy={submitting}>
+          {registering && (
+            <fieldset className="grid gap-2">
+              <legend className="mb-2 text-sm font-medium">Account type</legend>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-input px-2.5 text-sm has-[:checked]:border-primary has-[:checked]:bg-muted">
+                  <input
+                    type="radio"
+                    name="account_type"
+                    value="owner"
+                    required
+                  />
+                  Store Owner
+                </label>
+                <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-input px-2.5 text-sm has-[:checked]:border-primary has-[:checked]:bg-muted">
+                  <input
+                    type="radio"
+                    name="account_type"
+                    value="customer"
+                    required
+                  />
+                  Customer
+                </label>
+              </div>
+            </fieldset>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input
