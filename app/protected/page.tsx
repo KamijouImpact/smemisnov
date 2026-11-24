@@ -4,6 +4,12 @@ import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/logout-button";
 import { createClient } from "@/lib/supabase/server";
 
+const accountNames: Record<string, string> = {
+  owner: "Store Owner",
+  customer: "Customer",
+  admin: "Administrator",
+};
+
 async function Account() {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getClaims();
@@ -24,7 +30,7 @@ async function Account() {
         </p>
       ) : (
         <p className="text-sm font-medium">
-          {account.account_type === "owner" ? "Store Owner" : "Customer"}
+          {accountNames[account.account_type]}
         </p>
       )}
       <LogoutButton />
