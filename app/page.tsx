@@ -1,176 +1,58 @@
+import { DeployButton } from "@/components/deploy-button";
+import { EnvVarWarning } from "@/components/env-var-warning";
+import { AuthButton } from "@/components/auth-button";
+import { Hero } from "@/components/hero";
+import { ThemeSwitcher } from "@/components/theme-switcher";
+import { ConnectSupabaseSteps } from "@/components/tutorial/connect-supabase-steps";
+import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
+import { hasEnvVars } from "@/lib/utils";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { account } from "@/lib/mis/data";
-import { Row, peso, date } from "@/lib/mis/types";
-import { Header } from "@/components/mis/header";
-import { Status } from "@/components/mis/table";
-export const dynamic = "force-dynamic";
-export default async function Browse({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; category?: string; store?: string }>;
-}) {
-  const params = await searchParams;
-  const user = await account();
-  if (user?.role === "Owner") redirect("/workspace/overview");
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("browse_products", {
-    search: params.q || "",
-  });
-  const all: Row[] = data || [];
-  const hasFilters = Boolean(params.q || params.category || params.store);
-  const rows = all.filter(
-    (r) =>
-      (!params.category || r.category_name === params.category) &&
-      (!params.store || r.store_name === params.store),
-  );
+import { Suspense } from "react";
+
+export default function Home() {
   return (
-    <>
-      <Header user={user} inWorkspace={false} />
-      <main className="public-main">
-        <section className="browse-heading">
-          <h1>Browse products</h1>
-          <p>Compare prices and check stock at local stores.</p>
-        </section>
-        <section className="catalog-area">
-          <form className="searchbar">
-            <label className="search-input">
-              <span aria-hidden="true">⌕</span>
-              <input
-                aria-label="Search products, brands, or stores"
-                name="q"
-                placeholder="Search products, brands, or stores…"
-                defaultValue={params.q}
-              />
-            </label>
-            <select
-              name="category"
-              aria-label="Category"
-              defaultValue={params.category || ""}
+    <main className="min-h-screen flex flex-col items-center">
+      <div className="flex-1 w-full flex flex-col gap-20 items-center">
+        <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
+          <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
+            <div className="flex gap-5 items-center font-semibold">
+              <Link href={"/"}>Next.js Supabase Starter</Link>
+              <div className="flex items-center gap-2">
+                <DeployButton />
+              </div>
+            </div>
+            {!hasEnvVars ? (
+              <EnvVarWarning />
+            ) : (
+              <Suspense>
+                <AuthButton />
+              </Suspense>
+            )}
+          </div>
+        </nav>
+        <div className="flex-1 flex flex-col gap-20 max-w-5xl p-5">
+          <Hero />
+          <main className="flex-1 flex flex-col gap-6 px-4">
+            <h2 className="font-medium text-xl mb-4">Next steps</h2>
+            {hasEnvVars ? <SignUpUserSteps /> : <ConnectSupabaseSteps />}
+          </main>
+        </div>
+
+        <footer className="w-full flex items-center justify-center border-t mx-auto text-center text-xs gap-8 py-16">
+          <p>
+            Powered by{" "}
+            <a
+              href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
+              target="_blank"
+              className="font-bold hover:underline"
+              rel="noreferrer"
             >
-              <option value="">All categories</option>
-              {[...new Set(all.map((r) => String(r.category_name)))]
-                .sort()
-                .map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-            </select>
-            <select
-              name="store"
-              aria-label="Store"
-              defaultValue={params.store || ""}
-            >
-              <option value="">All stores</option>
-              {[...new Set(all.map((r) => String(r.store_name)))]
-                .sort()
-                .map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-            </select>
-            <button className="button">Search</button>
-          </form>
-          {!error && rows.length > 0 && (
-            <div className="catalog-results">
-              <p className="count">
-                {rows.length} {rows.length === 1 ? "listing" : "listings"}
-              </p>
-              {hasFilters && <Link href="/">Clear filters</Link>}
-            </div>
-          )}
-          {error ? (
-            <div className="notice error" role="alert">
-              Products could not be loaded. Please try again shortly.
-            </div>
-          ) : rows.length ? (
-            <div className="product-grid">
-              {rows.map((r) => (
-                <article
-                  className="product-card"
-                  key={String(r.store_price_id)}
-                >
-                  <div className="product-info">
-                    <span className="product-category">{r.category_name}</span>
-                    <div className="product-top">
-                      <span className="muted-text">
-                        {r.brand_name || "Unbranded"}
-                      </span>
-                      <Status value={r.availability} />
-                    </div>
-                    <h2>{r.product_name}</h2>
-                    <p className="variation">
-                      {[
-                        r.model_or_style,
-                        r.variation_name,
-                        r.size,
-                        r.color,
-                        r.flavor,
-                        r.capacity,
-                        r.net_quantity
-                          ? `${r.net_quantity} ${r.net_unit}`
-                          : null,
-                        r.condition === "Used" ? "Used" : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                    <p className="package">
-                      {r.unit_name} · {r.stock_units} {r.stock_unit}
-                    </p>
-                    <div className="price-line">
-                      <strong>{peso(r.selling_price)}</strong>
-                      {r.promotion_name && (
-                        <>
-                          <del>{peso(r.regular_price)}</del>
-                          <span className="promo-label">
-                            {r.promotion_name}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    {r.promotion_name && (
-                      <p className="promo-dates">
-                        Promotion: {date(r.promotion_starts_at)} –{" "}
-                        {date(r.promotion_ends_at)}
-                      </p>
-                    )}
-                    <div className="store-line">
-                      <span>{r.store_name}</span>
-                      <small>{r.address}</small>
-                    </div>
-                    <div className="product-footer">
-                      <small>
-                        Stock reported {date(r.availability_updated_at)}
-                      </small>
-                      <Link
-                        href={`/workspace/concerns?item=${r.store_price_id}`}
-                      >
-                        Report a price problem
-                      </Link>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="empty large">
-              <h3>
-                {hasFilters ? "No matching products" : "No products listed yet"}
-              </h3>
-              {hasFilters && (
-                <Link className="button outline" href="/">
-                  Clear filters
-                </Link>
-              )}
-            </div>
-          )}
-        </section>
-        {rows.length > 0 && (
-          <p className="catalog-footnote">
-            Confirm availability with the store before visiting.
+              Supabase
+            </a>
           </p>
-        )}
-      </main>
-    </>
+          <ThemeSwitcher />
+        </footer>
+      </div>
+    </main>
   );
 }
