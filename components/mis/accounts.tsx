@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StoreTabs } from "./store-tabs";
 import { ActionForm } from "./form";
 import { approvedChoices, RequestChoice } from "./catalog-choices";
 import { Panel, Table, Status } from "./table";
@@ -24,74 +25,84 @@ function StoreApprovals({ stores }: { stores: Row[] }) {
   const pending = stores.filter((store) => store.status === "Pending");
   const reviewed = stores.filter((store) => store.status !== "Pending");
   return (
-    <>
-      <Panel title="Waiting for approval">
-        {pending.length === 0 && (
-          <p>No store registrations are waiting for approval.</p>
-        )}
-        {pending.map((store) => (
-          <details className="row-details" key={String(store.sme_id)}>
-            <summary>
-              {String(store.store_name)} · {String(store.business_type)}
-            </summary>
-            <p>
-              {String(store.address)} · Registered {date(store.registered_at)}
-            </p>
-            <ActionForm
-              action="store_status"
-              hidden={{ sme_id: String(store.sme_id) }}
-              fields={[
-                {
-                  name: "status",
-                  label: "Decision",
-                  options: [
-                    { value: "Active", label: "Approve store" },
-                    { value: "Inactive", label: "Keep store inactive" },
-                  ],
-                },
-              ]}
-              submit="Save decision"
+    <StoreTabs pendingCount={pending.length}>
+      {{
+        Pending: (
+          <Panel title="Waiting for approval">
+            {pending.length === 0 && (
+              <p>No store registrations are waiting for approval.</p>
+            )}
+            {pending.map((store) => (
+              <details className="row-details" key={String(store.sme_id)}>
+                <summary>
+                  {String(store.store_name)} · {String(store.business_type)}
+                </summary>
+                <p>
+                  {String(store.address)} · Registered{" "}
+                  {date(store.registered_at)}
+                </p>
+                <ActionForm
+                  action="store_status"
+                  hidden={{ sme_id: String(store.sme_id) }}
+                  fields={[
+                    {
+                      name: "status",
+                      label: "Decision",
+                      options: [
+                        { value: "Active", label: "Approve store" },
+                        { value: "Inactive", label: "Keep store inactive" },
+                      ],
+                    },
+                  ]}
+                  submit="Save decision"
+                />
+              </details>
+            ))}
+          </Panel>
+        ),
+        Reviewed: (
+          <Panel title="Reviewed stores">
+            <Table
+              rows={reviewed}
+              columns={storeColumns}
+              empty="No stores have been reviewed yet."
             />
-          </details>
-        ))}
-      </Panel>
-      <Panel title="Reviewed stores">
-        <Table
-          rows={reviewed}
-          columns={storeColumns}
-          empty="No stores have been reviewed yet."
-        />
-      </Panel>
-      {reviewed.length > 0 && (
-        <Panel
-          collapsible
-          title="Manage store access"
-          description="Pause or reactivate a previously reviewed store."
-        >
-          <ActionForm
-            action="store_status"
-            fields={[
-              select(
-                "sme_id",
-                "Store",
-                reviewed,
-                "sme_id",
-                (store) => `${store.store_name} · ${store.status}`,
-              ),
-              {
-                name: "status",
-                label: "Access",
-                options: [
-                  { value: "Active", label: "Reactivate store" },
-                  { value: "Inactive", label: "Pause store" },
-                ],
-              },
-            ]}
-            submit="Save access"
-          />
-        </Panel>
-      )}
-    </>
+          </Panel>
+        ),
+        "Manage access": (
+          <Panel
+            title="Manage store access"
+            description="Pause or reactivate a previously reviewed store."
+          >
+            {reviewed.length === 0 ? (
+              <p>Review a registration before managing store access.</p>
+            ) : (
+              <ActionForm
+                action="store_status"
+                fields={[
+                  select(
+                    "sme_id",
+                    "Store",
+                    reviewed,
+                    "sme_id",
+                    (store) => `${store.store_name} · ${store.status}`,
+                  ),
+                  {
+                    name: "status",
+                    label: "Access",
+                    options: [
+                      { value: "Active", label: "Reactivate store" },
+                      { value: "Inactive", label: "Pause store" },
+                    ],
+                  },
+                ]}
+                submit="Save access"
+              />
+            )}
+          </Panel>
+        ),
+      }}
+    </StoreTabs>
   );
 }
 

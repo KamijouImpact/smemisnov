@@ -1209,3 +1209,26 @@ tbody tr:hover {
     font-size: 27px;
   }
 }
+
+.store-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #d7e0d6;
+}
+
+.store-tab-list button {
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 10px 12px;
+}
+
+.store-tab-list button[aria-selected="true"] {
+  border-bottom-color: var(--forest);
+  background: var(--sage);
+  font-weight: 700;
+}
