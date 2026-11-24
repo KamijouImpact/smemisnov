@@ -30,9 +30,12 @@ export function Header({ user }: { user: Account | null }) {
             <Logout />
           </>
         ) : (
-          <Link className="button small" href="/auth/login">
-            Log in
-          </Link>
+          <>
+            <Link href="/auth/login">Log in</Link>
+            <Link className="button small" href="/auth/sign-up">
+              Register
+            </Link>
+          </>
         )}
       </nav>
     </header>

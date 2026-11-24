@@ -2,6 +2,10 @@
 
 Read the newest entry first. For setup, workspace locations and role workflows, start with the [contributor guide](AGENTS.md). Add dated entries for changes that affect how people use, operate or develop the system. Include the decision, verification and outstanding work. Keep account credentials and customer or store records out of the diary.
 
+## 2026-11-24 — Registration from the public homepage
+
+The guest header previously exposed only Log in. Register now opens the existing sign-up form directly beside Log in. Checked the header destination against the sign-up route and its registration mode.
+
 ## 2026-11-23 — Contributor onboarding
 
 The requested onboarding is for developers and AI agents joining this repository. The previous update combined contributor notes and app navigation improvements. The root contributor guide now gives incoming contributors a reading order, a product-form-to-database example, and the workflow for verification, release and handoff. The README links to it first. Checked the guide’s repository paths, setup links and RPC example. The open pricing decision below still needs an answer.
