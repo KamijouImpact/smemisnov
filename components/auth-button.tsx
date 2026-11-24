@@ -18,7 +18,8 @@ export async function AuthButton() {
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="mr-1 text-sm text-muted-foreground">Guest</span>
       <Button asChild className="h-11 sm:h-9" variant="outline">
         <Link href="/auth/login">Log in</Link>
       </Button>
