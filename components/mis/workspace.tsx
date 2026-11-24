@@ -135,38 +135,6 @@ function Home({ db, role }: { db: Database; role: Account["role"] }) {
           )}
         </div>
       )}
-      <Panel title="Common tasks">
-        <div className="quick-links">
-          {(admin
-            ? [
-                ["stores", "Approve new store registrations."],
-                [
-                  "product-requests",
-                  "Review products and pack sizes requested by stores.",
-                ],
-                ["prices", "Check prices that need a decision."],
-                [
-                  "choice-requests",
-                  "Review missing options requested by Owners.",
-                ],
-                ["concerns", "Check reported price problems."],
-              ]
-            : [
-                ["products", "Add products and choose pack sizes."],
-                ["prices", "Request or check a selling price."],
-                ["stock", "Record stock received and items sold."],
-                ["reports", "See sales, costs, and stock levels."],
-              ]
-          )
-            .filter(([path]) => path !== next.path)
-            .map(([path, text]) => (
-              <Link key={path} href={`/workspace/${path}`}>
-                <span>{pageName(role, path)}</span>
-                <p>{text}</p>
-              </Link>
-            ))}
-        </div>
-      </Panel>
     </>
   );
 }

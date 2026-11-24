@@ -157,20 +157,19 @@ export default async function Browse({
               <h3>
                 {hasFilters ? "No matching products" : "No products listed yet"}
               </h3>
-              {hasFilters && <p>Try another search or clear the filters.</p>}
-              <Link
-                className="button outline"
-                href={hasFilters ? "/" : "/auth/login?mode=register"}
-              >
-                {hasFilters ? "Clear filters" : "Register your store"}
-              </Link>
+              {hasFilters && (
+                <Link className="button outline" href="/">
+                  Clear filters
+                </Link>
+              )}
             </div>
           )}
         </section>
-        <p className="catalog-footnote">
-          Stock availability comes from store records. Check with the store
-          before visiting.
-        </p>
+        {rows.length > 0 && (
+          <p className="catalog-footnote">
+            Confirm availability with the store before visiting.
+          </p>
+        )}
       </main>
     </>
   );

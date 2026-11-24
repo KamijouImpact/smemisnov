@@ -643,29 +643,6 @@ tbody tr:hover {
 .panel .stat strong {
   font-size: 21px;
 }
-.quick-links {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-.quick-links > a {
-  background: #f5f7ef;
-  border: 1px solid #e6ebdf;
-  padding: 19px;
-  border-radius: 8px;
-}
-.quick-links > a:hover {
-  background: #edf2e3;
-}
-.quick-links > a > span {
-  font-weight: 600;
-  font-size: 13px;
-}
-.quick-links p {
-  color: var(--muted);
-  font-size: 11px;
-  margin-top: 8px;
-}
 .muted-text {
   color: var(--muted);
   font-size: 11px;
@@ -911,9 +888,6 @@ tbody tr:hover {
   }
   .stat strong {
     font-size: 23px;
-  }
-  .quick-links {
-    grid-template-columns: 1fr;
   }
   .report-filters {
     grid-template-columns: 1fr 1fr;
