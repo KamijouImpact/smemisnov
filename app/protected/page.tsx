@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AccountMenu } from "@/components/account-menu";
+import { SidebarLayout } from "@/components/sidebar-layout";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -33,7 +34,7 @@ async function Account() {
           onAccountPage
         />
       </SiteHeader>
-      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <SidebarLayout>
         <h1 className="mb-6 text-2xl font-semibold tracking-tight sm:text-3xl">
           {accountName ? `${accountName} account` : "Account"}
         </h1>
@@ -42,7 +43,7 @@ async function Account() {
             Could not load your account type.
           </p>
         )}
-        <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <Card className="min-w-0 space-y-4 p-5 sm:p-6">
             <h2 className="font-semibold">Account details</h2>
             <dl className="space-y-3 text-sm">
@@ -67,14 +68,14 @@ async function Account() {
             </div>
           </Card>
         </div>
-      </main>
+      </SidebarLayout>
     </>
   );
 }
 
 export default function ProtectedPage() {
   return (
-    <div className="min-h-svh">
+    <div className="flex min-h-svh flex-col">
       <Suspense fallback={<SiteHeader />}>
         <Account />
       </Suspense>
