@@ -66,7 +66,7 @@ export function SidebarLayout({
       </SiteHeader>
       <div
         className={cn(
-          "mx-auto grid w-full max-w-7xl flex-1 grid-rows-[auto_1fr]",
+          "grid w-full flex-1 grid-rows-[auto_1fr]",
           open &&
             "md:grid-cols-[10rem_minmax(0,1fr)] md:grid-rows-1 lg:grid-cols-[14rem_minmax(0,1fr)]",
         )}

@@ -10,7 +10,7 @@ export function SiteHeader({
 }) {
   return (
     <header className="border-b bg-background">
-      <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 sm:px-6 lg:px-8">
+      <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2">
         <div className="flex items-center gap-3">
           {leading}
           <Link href="/" className="text-lg font-semibold tracking-tight">

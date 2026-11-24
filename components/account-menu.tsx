@@ -41,7 +41,7 @@ export function AccountMenu({
         id="account-menu"
         popover="auto"
         aria-label="Account actions"
-        className="fixed inset-auto right-4 top-16 m-0 w-64 max-w-[calc(100vw-2rem)] rounded-xl border bg-popover p-2 text-popover-foreground shadow-lg sm:right-6 lg:right-[max(2rem,calc((100vw-76rem)/2))]"
+        className="fixed inset-auto right-4 top-16 m-0 w-64 max-w-[calc(100vw-2rem)] rounded-xl border bg-popover p-2 text-popover-foreground shadow-lg"
       >
         <div className="mb-1 border-b px-3 pb-3 pt-2">
           <p className="text-sm font-semibold">
