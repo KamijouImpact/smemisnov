@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { StoreTabs } from "./store-tabs";
+import { StoreDirectory } from "./store-directory";
 import { ActionForm } from "./form";
 import { approvedChoices, RequestChoice } from "./catalog-choices";
 import { Panel, Table, Status } from "./table";
@@ -21,93 +21,8 @@ const storeColumns = [
   },
 ];
 
-function StoreApprovals({ stores }: { stores: Row[] }) {
-  const pending = stores.filter((store) => store.status === "Pending");
-  const reviewed = stores.filter((store) => store.status !== "Pending");
-  return (
-    <StoreTabs pendingCount={pending.length}>
-      {{
-        Pending: (
-          <Panel title="Waiting for approval">
-            {pending.length === 0 && (
-              <p>No store registrations are waiting for approval.</p>
-            )}
-            {pending.map((store) => (
-              <details className="row-details" key={String(store.sme_id)}>
-                <summary>
-                  {String(store.store_name)} · {String(store.business_type)}
-                </summary>
-                <p>
-                  {String(store.address)} · Registered{" "}
-                  {date(store.registered_at)}
-                </p>
-                <ActionForm
-                  action="store_status"
-                  hidden={{ sme_id: String(store.sme_id) }}
-                  fields={[
-                    {
-                      name: "status",
-                      label: "Decision",
-                      options: [
-                        { value: "Active", label: "Approve store" },
-                        { value: "Inactive", label: "Keep store inactive" },
-                      ],
-                    },
-                  ]}
-                  submit="Save decision"
-                />
-              </details>
-            ))}
-          </Panel>
-        ),
-        Reviewed: (
-          <Panel title="Reviewed stores">
-            <Table
-              rows={reviewed}
-              columns={storeColumns}
-              empty="No stores have been reviewed yet."
-            />
-          </Panel>
-        ),
-        "Manage access": (
-          <Panel
-            title="Manage store access"
-            description="Pause or reactivate a previously reviewed store."
-          >
-            {reviewed.length === 0 ? (
-              <p>Review a registration before managing store access.</p>
-            ) : (
-              <ActionForm
-                action="store_status"
-                fields={[
-                  select(
-                    "sme_id",
-                    "Store",
-                    reviewed,
-                    "sme_id",
-                    (store) => `${store.store_name} · ${store.status}`,
-                  ),
-                  {
-                    name: "status",
-                    label: "Access",
-                    options: [
-                      { value: "Active", label: "Reactivate store" },
-                      { value: "Inactive", label: "Pause store" },
-                    ],
-                  },
-                ]}
-                submit="Save access"
-              />
-            )}
-          </Panel>
-        ),
-      }}
-    </StoreTabs>
-  );
-}
-
 export function Stores({ db, admin }: Props) {
-  if (admin) return <StoreApprovals stores={db.sme} />;
+  if (admin) return <StoreDirectory stores={db.sme} />;
   const stores = db.sme;
   const businessTypes = approvedChoices(db.catalog_choice, "business_type");
   const storesWithOldTypes = stores.filter(

@@ -4,7 +4,7 @@ export function Status({ value }: { value: unknown }) {
   const s = String(value ?? "—");
   return (
     <span
-      className={`status ${["Active", "Approved", "Available", "Open"].includes(s) ? "good" : ["Rejected", "Inactive", "Archived", "Cancelled", "Out of stock"].includes(s) ? "muted" : "pending"}`}
+      className={`status ${["Active", "Approved", "Available", "Open"].includes(s) ? "good" : ["Rejected", "Inactive", "Paused", "Archived", "Cancelled", "Out of stock"].includes(s) ? "muted" : "pending"}`}
     >
       {simpleText(s)}
     </span>

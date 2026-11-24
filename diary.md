@@ -2,6 +2,10 @@
 
 Read the newest entry first. For setup, workspace locations and role workflows, start with the [contributor guide](AGENTS.md). Add dated entries for changes that affect how people use, operate or develop the system. Include the decision, verification and outstanding work. Keep account credentials and customer or store records out of the diary.
 
+## 2026-11-24 — Show all stores in a searchable directory
+
+Stores opens on All stores, grouped by pending approval, active and paused. Search matches name, business type or address. Each store has a Manage button that opens its details and available actions in a side panel. Lint and build passed. A mobile-width browser check with fixture data covered search, filters, approval, pause and reactivation.
+
 ## 2026-11-24 — Add tabs within Stores
 
 The Administrator sidebar opens Stores. Inside, Pending, Reviewed and Manage access each have their own tab. Pending shows the registration count. With an empty queue, Stores opens on Reviewed. Lint and build passed. A local browser check with fixture data covered all tabs, keyboard navigation and approving a store.
