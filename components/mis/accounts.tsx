@@ -3,21 +3,108 @@ import { ActionForm } from "./form";
 import { approvedChoices, RequestChoice } from "./catalog-choices";
 import { Panel, Table, Status } from "./table";
 import { Props, area, choice, select, text } from "./fields";
-import { Account, date } from "@/lib/mis/types";
+import { Account, date, Row } from "@/lib/mis/types";
+const storeColumns = [
+  { key: "store_name", label: "Store" },
+  { key: "business_type", label: "Business type" },
+  { key: "address", label: "Address" },
+  {
+    key: "status",
+    label: "Status",
+    render: (row: Row) => <Status value={row.status} />,
+  },
+  {
+    key: "registered_at",
+    label: "Registered",
+    render: (row: Row) => date(row.registered_at),
+  },
+];
+
+function StoreApprovals({ stores }: { stores: Row[] }) {
+  const pending = stores.filter((store) => store.status === "Pending");
+  const reviewed = stores.filter((store) => store.status !== "Pending");
+  return (
+    <>
+      <Panel title="Waiting for approval">
+        {pending.length === 0 && (
+          <p>No store registrations are waiting for approval.</p>
+        )}
+        {pending.map((store) => (
+          <details className="row-details" key={String(store.sme_id)}>
+            <summary>
+              {String(store.store_name)} · {String(store.business_type)}
+            </summary>
+            <p>
+              {String(store.address)} · Registered {date(store.registered_at)}
+            </p>
+            <ActionForm
+              action="store_status"
+              hidden={{ sme_id: String(store.sme_id) }}
+              fields={[
+                {
+                  name: "status",
+                  label: "Decision",
+                  options: [
+                    { value: "Active", label: "Approve store" },
+                    { value: "Inactive", label: "Keep store inactive" },
+                  ],
+                },
+              ]}
+              submit="Save decision"
+            />
+          </details>
+        ))}
+      </Panel>
+      <Panel title="Reviewed stores">
+        <Table
+          rows={reviewed}
+          columns={storeColumns}
+          empty="No stores have been reviewed yet."
+        />
+      </Panel>
+      {reviewed.length > 0 && (
+        <Panel
+          collapsible
+          title="Manage store access"
+          description="Pause or reactivate a previously reviewed store."
+        >
+          <ActionForm
+            action="store_status"
+            fields={[
+              select(
+                "sme_id",
+                "Store",
+                reviewed,
+                "sme_id",
+                (store) => `${store.store_name} · ${store.status}`,
+              ),
+              {
+                name: "status",
+                label: "Access",
+                options: [
+                  { value: "Active", label: "Reactivate store" },
+                  { value: "Inactive", label: "Pause store" },
+                ],
+              },
+            ]}
+            submit="Save access"
+          />
+        </Panel>
+      )}
+    </>
+  );
+}
+
 export function Stores({ db, admin }: Props) {
-  const stores = admin
-    ? [...db.sme].sort(
-        (a, b) =>
-          Number(b.status === "Pending") - Number(a.status === "Pending"),
-      )
-    : db.sme;
+  if (admin) return <StoreApprovals stores={db.sme} />;
+  const stores = db.sme;
   const businessTypes = approvedChoices(db.catalog_choice, "business_type");
   const storesWithOldTypes = stores.filter(
     (store) => !businessTypes.includes(String(store.business_type)),
   );
   return (
     <>
-      {!admin && stores.length === 0 && (
+      {stores.length === 0 && (
         <Panel
           title="Add a store"
           description="Each Owner account can register one store. You can add products after approval."
@@ -33,7 +120,7 @@ export function Stores({ db, admin }: Props) {
           />
         </Panel>
       )}
-      {!admin && storesWithOldTypes.length > 0 && (
+      {storesWithOldTypes.length > 0 && (
         <Panel
           title="Update business type"
           description="Choose an approved type for your existing store."
@@ -51,68 +138,17 @@ export function Stores({ db, admin }: Props) {
           />
         </Panel>
       )}
-      {!admin && (
-        <RequestChoice
-          requests={db.catalog_choice_request}
-          kinds={["business_type"]}
-        />
-      )}
-      {admin && stores.length > 0 && (
-        <Panel title="Approve or pause a store">
-          <ActionForm
-            action="store_status"
-            fields={[
-              select(
-                "sme_id",
-                "Store",
-                stores,
-                "sme_id",
-                (s) => `${s.store_name} · ${s.status}`,
-              ),
-              {
-                name: "status",
-                label: "Decision",
-                options: [
-                  { value: "Active", label: "Approve or reactivate" },
-                  { value: "Inactive", label: "Pause access" },
-                ],
-              },
-            ]}
-            submit="Save store status"
-          />
-        </Panel>
-      )}
+      <RequestChoice
+        requests={db.catalog_choice_request}
+        kinds={["business_type"]}
+      />
       <Panel
-        title={
-          admin
-            ? "Registered stores"
-            : stores.length > 1
-              ? "My registered stores"
-              : "Store details"
-        }
+        title={stores.length > 1 ? "My registered stores" : "Store details"}
       >
         <Table
           rows={stores}
-          empty={
-            admin
-              ? "No stores have been registered yet."
-              : "You haven’t registered a store yet."
-          }
-          columns={[
-            { key: "store_name", label: "Store" },
-            { key: "business_type", label: "Business type" },
-            { key: "address", label: "Address" },
-            {
-              key: "status",
-              label: "Status",
-              render: (r) => <Status value={r.status} />,
-            },
-            {
-              key: "registered_at",
-              label: "Registered",
-              render: (r) => date(r.registered_at),
-            },
-          ]}
+          columns={storeColumns}
+          empty="You haven’t registered a store yet."
         />
       </Panel>
     </>
