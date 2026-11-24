@@ -45,22 +45,11 @@ export async function workspaceData(
     products: [
       ...productTables,
       "category",
-      "product_request",
       "catalog_choice",
       "catalog_choice_request",
     ],
     "choice-requests": ["catalog_choice_request"],
     catalog: [...productTables, "category"],
-    "product-requests": [
-      "sme",
-      "category",
-      "brand",
-      "product",
-      "product_variation",
-      "product_unit",
-      "product_request",
-      "price_request",
-    ],
     prices: [
       ...productTables,
       "price_request",
@@ -78,7 +67,6 @@ export async function workspaceData(
       "price_request",
       "promotion",
       "promotion_entry",
-      "product_request",
     ],
     concerns: [...productTables, "customer_report"],
     rules: ["price_rule"],
@@ -92,7 +80,7 @@ export async function workspaceData(
         : []
       : (byPage[section] ?? []);
   if (role === "Administrator" && section === "overview")
-    needed.push("product_request", "catalog_choice_request");
+    needed.push("catalog_choice_request");
   const primary: Record<string, string> = {
     user_account: "user_id",
     catalog_choice: "choice_id",
@@ -103,7 +91,6 @@ export async function workspaceData(
     product: "product_id",
     product_variation: "variation_id",
     product_unit: "unit_id",
-    product_request: "product_request_id",
     store_product: "store_product_id",
     store_price: "store_price_id",
     price_rule: "rule_id",

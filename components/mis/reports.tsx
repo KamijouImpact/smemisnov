@@ -124,26 +124,6 @@ export function Reports({ db, admin }: Props) {
       { key: "owner_reason", label: "Owner explanation" },
       { key: "submitted", label: "Submitted" },
     ];
-  } else if (type === "Products waiting for review") {
-    rows = db.product_request
-      .filter(
-        (r) =>
-          r.status === "Pending Product Review" &&
-          (!store || String(r.sme_id) === store) &&
-          at(r.submitted_at),
-      )
-      .map((r) => ({
-        request_id: r.product_request_id,
-        store_name: find(db, "sme", r.sme_id).store_name,
-        details: r.requested_details,
-        submitted: date(r.submitted_at),
-      }));
-    columns = [
-      { key: "request_id", label: "Request" },
-      { key: "store_name", label: "Store" },
-      { key: "details", label: "Requested details" },
-      { key: "submitted", label: "Submitted" },
-    ];
   } else if (type === "Discounts waiting for review") {
     rows = db.promotion_entry
       .filter(
@@ -238,7 +218,6 @@ export function Reports({ db, admin }: Props) {
               <optgroup label="Prices and approvals">
                 <option>Price history</option>
                 <option>Prices waiting for review</option>
-                <option>Products waiting for review</option>
                 <option>Discounts waiting for review</option>
               </optgroup>
             </select>

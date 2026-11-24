@@ -29,7 +29,7 @@ The native Auth tables are platform support records, not additional business mod
 
 - Products remain drafts until they have an active variation and selling unit. An omitted variation name defaults to Standard. Each selling unit has a fixed stock conversion. The legacy shared catalog keeps a common variation and selling unit. Owners can also create store-owned products. Their stock and prices belong to the store.
 - Brand search keys remove case, accent, and extra-space differences. Administrators curate the product list; the system does not guess that different models or packages are equivalent.
-- Other / Not Listed stays in product review until matched to approved details. It cannot autoapprove a price as an unidentified "Other" product.
+- Owners add products directly and submit their first prices for Administrator review. Legacy catalog request records remain in the database as history.
 - A price reference requires the same variation and pack. Shared listings use catalog identity. Store-owned listings use normalized product details and pack identity. Sources must be active and have a recent approved regular price. It excludes the requesting store. Promotions and pending prices are never sources.
 - The rule version, source histories, exact numeric median, rounded-down cutoff, check time, and review reason are retained. There is no invented default rule.
 - A price approval changes its request, current price, and one history record atomically. Pending/rejected requests keep the earlier approved price. A first price is hidden until approved. Revisions can link rejected/withdrawn requests.

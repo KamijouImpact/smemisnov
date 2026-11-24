@@ -60,7 +60,7 @@ There are no shared demo passwords or public test accounts in this repository.
 
 Owners can request missing business types, product categories, and stock units. An Administrator can approve or reject them from **Option requests**. Approval makes the option available to Owners. Existing stores with older business-type values can choose an approved replacement.
 
-Existing shared catalog listings and product requests are retained. Administrators review older catalog requests in **Product requests** and can approve one only after selecting an exact pack.
+Owners add products directly. Administrators review their first selling prices in **Price approvals**. Older catalog request records are retained as history.
 
 The latest specification proposes manual approval for all increases and immediate Owner decreases. This differs from the existing configurable automatic approval policy. This update requires manual review for the first price of a new store-owned product and keeps the existing policy for subsequent changes pending a policy decision.
 

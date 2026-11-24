@@ -2,6 +2,10 @@
 
 Read the newest entry first. For setup, workspace locations and role workflows, start with the [contributor guide](AGENTS.md). Add dated entries for changes that affect how people use, operate or develop the system. Include the decision, verification and outstanding work. Keep account credentials and customer or store records out of the diary.
 
+## 2026-11-24 — Retire the old catalog request queue
+
+Removed the legacy Product requests screen, links and reporting filter. Owners add products directly and Administrators review the first selling price in Price approvals. Previous request rows are retained in the database as history. A local browser check verified that the old route is blocked and first-price approval still works.
+
 ## 2026-11-24 — Route new products to first-price approval
 
 Product requests now points Administrators to Price approvals and shows the number of first prices awaiting review. Catalog requests retain their exact active pack and reason requirements. My products points Owners to Set price on the item. Lint, nine unit tests and build passed. A local browser check verified the first-price count and link using fixture data.

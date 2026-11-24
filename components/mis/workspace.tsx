@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Account, Database, Row } from "@/lib/mis/types";
 import { pageName } from "@/lib/mis/navigation";
 import { Stores, Accounts, MyAccount } from "./accounts";
-import { Products, Catalog, ProductRequests } from "./products";
+import { Products, Catalog } from "./products";
 import { Prices, Rules } from "./prices";
 import { Stock } from "./stock";
 import { Promotions } from "./promotions";
@@ -23,16 +23,6 @@ function nextTask(db: Database, admin: boolean, waitingPrices: number) {
         path: "stores",
         title: "Review new stores",
         text: "Check the store registrations waiting for approval.",
-      };
-    if (
-      db.product_request.some(
-        (request) => request.status === "Pending Product Review",
-      )
-    )
-      return {
-        path: "product-requests",
-        title: "Review product requests",
-        text: "Stores are waiting for a catalog product or pack size.",
       };
     if (
       db.catalog_choice_request.some((request) => request.status === "Pending")
@@ -156,7 +146,6 @@ export function WorkspacePage({
     stores: <Stores {...props} />,
     products: <Products {...props} />,
     catalog: <Catalog {...props} />,
-    "product-requests": <ProductRequests {...props} />,
     "choice-requests": <ChoiceApprovals requests={db.catalog_choice_request} />,
     prices: <Prices {...props} requestedItem={requestedItem} />,
     rules: <Rules {...props} />,

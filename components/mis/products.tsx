@@ -1,5 +1,4 @@
 import Link from "next/link";
-import type { ComponentProps } from "react";
 import { ActionForm } from "./form";
 import { approvedChoices, RequestChoice } from "./catalog-choices";
 import {
@@ -8,13 +7,11 @@ import {
   type CatalogChoice,
   type StoreProductSuggestions,
 } from "./add-product";
-import { ProductRequestReview } from "./product-request-review";
 import { Panel, Table, Status } from "./table";
 import { Props, area, choice, num, select, text } from "./fields";
 import {
   type Database,
   type Row,
-  date,
   find,
   label,
   peso,
@@ -281,106 +278,9 @@ export function Products({ db, admin }: Props) {
           />
         </Panel>
       )}
-      {!admin && db.product_request.length > 0 && (
-        <ProductRequests db={db} admin={false} />
-      )}
     </>
   );
 }
-export function ProductRequests({ db, admin }: Props) {
-  const pendingRequests = db.product_request.filter(
-    (request) => request.status === "Pending Product Review",
-  );
-  const reviewedRequests = db.product_request.filter(
-    (request) => request.status !== "Pending Product Review",
-  );
-  const firstPrices = admin
-    ? db.price_request.filter(
-        (request) =>
-          request.status === "Pending Price Review" &&
-          request.previous_price === null,
-      ).length
-    : 0;
-  const catalogUnits = admin ? activeCatalogUnits(db) : [];
-  const columns: ComponentProps<typeof Table>["columns"] = [
-    { key: "product_request_id", label: "Request" },
-    {
-      key: "sme_id",
-      label: "Store",
-      render: (row) => String(find(db, "sme", row.sme_id).store_name),
-    },
-    { key: "requested_details", label: "Product details" },
-    {
-      key: "submitted_at",
-      label: "Submitted",
-      render: (row) => date(row.submitted_at),
-    },
-    {
-      key: "status",
-      label: "Status",
-      render: (row) => <Status value={row.status} />,
-    },
-    { key: "decision_reason", label: "Decision reason" },
-  ];
-
-  return (
-    <>
-      {admin && (
-        <Panel title="First selling prices">
-          <p>
-            Owners add products in their own store and submit a first price for
-            approval.
-            {firstPrices > 0 &&
-              ` First prices waiting for review: ${firstPrices}.`}
-          </p>
-          <Link className="button small" href="/workspace/prices">
-            Open Price approvals
-          </Link>
-        </Panel>
-      )}
-      <Panel title={admin ? "Waiting for review" : "My product requests"}>
-        <Table
-          rows={admin ? pendingRequests : db.product_request}
-          empty={
-            admin
-              ? "No product requests are waiting for review."
-              : "You haven’t sent a product request."
-          }
-          columns={columns}
-        />
-      </Panel>
-      {admin && pendingRequests.length > 0 && (
-        <Panel
-          title="Review a product request"
-          description="For a catalog request, choose the exact matching pack and enter a decision reason, or reject it with a reason."
-        >
-          <p className="muted-text">
-            If the pack size is missing,{" "}
-            <Link href="/workspace/catalog">add it to the catalog</Link> first.
-          </p>
-          <ProductRequestReview
-            requests={pendingRequests.map((request) => ({
-              value: String(request.product_request_id),
-              label: `#${request.product_request_id} · ${request.requested_details}`,
-              storeId: String(request.sme_id),
-            }))}
-            packs={catalogUnits.map(({ unit, product }) => ({
-              value: String(unit.unit_id),
-              label: label(db, unit.unit_id, "unit"),
-              storeId: product.sme_id ? String(product.sme_id) : null,
-            }))}
-          />
-        </Panel>
-      )}
-      {admin && reviewedRequests.length > 0 && (
-        <Panel collapsible title="Reviewed requests">
-          <Table rows={reviewedRequests} columns={columns} />
-        </Panel>
-      )}
-    </>
-  );
-}
-
 export function Catalog({ db: workspace }: Props) {
   const products = workspace.product.filter((product) => !product.sme_id);
   const productIds = new Set(products.map((product) => product.product_id));
@@ -399,9 +299,6 @@ export function Catalog({ db: workspace }: Props) {
   };
   return (
     <>
-      <p className="notice">
-        <Link href="/workspace/product-requests">Review product requests</Link>
-      </p>
       <p className="notice">
         Add a category, then a product name, option, and pack size. A product
         stays in draft until it has an active option and pack size.

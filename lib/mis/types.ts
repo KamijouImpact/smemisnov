@@ -31,7 +31,6 @@ export const tables = [
   "product",
   "product_variation",
   "product_unit",
-  "product_request",
   "store_product",
   "store_price",
   "price_rule",
