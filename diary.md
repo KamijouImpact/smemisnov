@@ -2,6 +2,10 @@
 
 Read the newest entry first. For setup, workspace locations and role workflows, start with the [contributor guide](AGENTS.md). Add dated entries for changes that affect how people use, operate or develop the system. Include the decision, verification and outstanding work. Keep account credentials and customer or store records out of the diary.
 
+## 2026-11-24 — Limit workspace navigation by role
+
+The sidebar now also defines which workspace pages each role can open directly. Stock and sales analytics are Owner screens. Administrators retain price and store oversight, catalog requests, promotions and account administration. The workspace header removes links that duplicate the sidebar or the brand link. Lint, unit tests, build and local browser route checks for all three roles passed.
+
 ## 2026-11-24 — Show all stores in a searchable directory
 
 Stores opens on All stores, grouped by pending approval, active and paused. Search matches name, business type or address. Each store has a Manage button that opens its details and available actions in a side panel. Lint and build passed. A mobile-width browser check with fixture data covered search, filters, approval, pause and reactivation.

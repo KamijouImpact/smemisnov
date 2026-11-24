@@ -13,7 +13,7 @@ Open the [production site](https://smemisnov.vercel.app). Customers and guests s
 | Who | Where to start | What happens next |
 | --- | --- | --- |
 | Owner | **My store** → register one store and wait for activation | In **My products**, add a product and its pack, then choose **Set price**. Record stock and sales in **Stock**. Open **Sales & stock reports** for sales, estimated profit and restocking decisions. |
-| Administrator | **Overview** → **Price approvals** | Review the proposed price and eligible prices from other stores for the same variant and pack. Decide manually when evidence is insufficient. Use **Store approvals** and **Option requests** to unblock Owners. |
+| Administrator | **Overview** → **Price approvals** | Review the proposed price and eligible prices from other stores for the same variant and pack. Decide manually when evidence is insufficient. Use **Stores** and **Option requests** to unblock Owners. |
 | Customer | Search the public catalog | View approved prices and reported availability. Sign in to report a price concern and follow its outcome. |
 
 ## Run locally

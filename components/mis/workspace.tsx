@@ -49,9 +49,9 @@ function nextTask(db: Database, admin: boolean, waitingPrices: number) {
         text: "Add products and pack sizes for stores to choose from.",
       };
     return {
-      path: "reports",
-      title: "View sales and stock reports",
-      text: "Store, product, option, and price approval queues are clear.",
+      path: "rules",
+      title: "View price rules",
+      text: "Approval queues are clear. Review the rules used for price comparisons.",
     };
   }
 
@@ -123,14 +123,16 @@ function Home({ db, role }: { db: Database; role: Account["role"] }) {
             title="Prices waiting for review"
             value={String(waitingPrices)}
           />
-          <Stat
-            title="Low stock"
-            value={String(
-              db.store_product.filter(
-                (r) => Number(r.stock_quantity) <= Number(r.low_stock_level),
-              ).length,
-            )}
-          />
+          {!admin && (
+            <Stat
+              title="Low stock"
+              value={String(
+                db.store_product.filter(
+                  (r) => Number(r.stock_quantity) <= Number(r.low_stock_level),
+                ).length,
+              )}
+            />
+          )}
         </div>
       )}
       <Panel title="Common tasks">
@@ -148,7 +150,6 @@ function Home({ db, role }: { db: Database; role: Account["role"] }) {
                   "Review missing options requested by Owners.",
                 ],
                 ["concerns", "Check reported price problems."],
-                ["reports", "See store, sales, and stock records."],
               ]
             : [
                 ["products", "Add products and choose pack sizes."],

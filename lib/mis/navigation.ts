@@ -25,11 +25,9 @@ export function navigation(role: Account["role"]) {
       ],
       groups: [
         {
-          label: "Catalog and reports",
+          label: "Catalog and promotions",
           items: [
             item("catalog", "Product catalog"),
-            item("stock", "Stock levels"),
-            item("reports", "Sales & stock reports"),
             promotions,
           ],
         },
@@ -52,13 +50,13 @@ export function navigation(role: Account["role"]) {
       item("stock", "Stock"),
       item("reports", "Sales & stock reports"),
       item("stores", "My store"),
+      account,
     ],
     groups: [
       {
         label: "More",
         items: [item("concerns", "Price reports"), promotions],
       },
-      { label: "Account", items: [account] },
     ],
   };
 }

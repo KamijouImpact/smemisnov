@@ -1,4 +1,5 @@
 import { account, workspaceData } from "@/lib/mis/data";
+import { pageName } from "@/lib/mis/navigation";
 import { WorkspacePage } from "@/components/mis/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
@@ -12,40 +13,10 @@ export default async function Section({
   const { section } = await params;
   const { item } = await searchParams;
   const user = (await account(true))!;
-  if (
-    ![
-      "overview",
-      "stores",
-      "products",
-      "catalog",
-      "product-requests",
-      "choice-requests",
-      "prices",
-      "stock",
-      "promotions",
-      "reports",
-      "concerns",
-      "rules",
-      "accounts",
-      "account",
-    ].includes(section)
-  )
+  if (!pageName(user.role, section)) {
+    if (user.role === "Customer") redirect("/workspace/concerns");
     notFound();
-  if (user.role === "Customer" && !["concerns", "account"].includes(section))
-    redirect("/workspace/concerns");
-  if (
-    user.role !== "Administrator" &&
-    [
-      "catalog",
-      "product-requests",
-      "choice-requests",
-      "rules",
-      "accounts",
-    ].includes(section)
-  )
-    notFound();
-  if (user.role === "Administrator" && section === "products")
-    redirect("/workspace/catalog");
+  }
   const supabase = await createClient();
   const [db, { data: publicRows, error }] = await Promise.all([
     workspaceData(user.role, section),
