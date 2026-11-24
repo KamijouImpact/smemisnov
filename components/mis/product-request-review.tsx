@@ -73,7 +73,8 @@ export function ProductRequestReview({
           <Link href="/workspace/catalog">
             Add the exact product and pack size
           </Link>{" "}
-          before approving, or reject the request with a reason.
+          and make sure the product and pack are active before approving. You
+          can also reject the request with a reason.
         </p>
       )}
       {approve && (

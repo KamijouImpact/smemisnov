@@ -59,6 +59,7 @@ export async function workspaceData(
       "product_variation",
       "product_unit",
       "product_request",
+      "price_request",
     ],
     prices: [
       ...productTables,

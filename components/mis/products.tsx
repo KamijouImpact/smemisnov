@@ -204,9 +204,8 @@ export function Products({ db, admin }: Props) {
               listing.status === "Active" && listing.regular_price === null,
           ) && (
             <p className="notice">
-              Products need an approved price before customers can see them.{" "}
-              <Link href="/workspace/prices">Request a price</Link> or{" "}
-              <Link href="/workspace/stock">record starting stock</Link>.
+              Use Set price on a product to submit its first selling price. Once
+              approved, the listing can appear in the public catalog.
             </p>
           )}
         <Table
@@ -295,6 +294,13 @@ export function ProductRequests({ db, admin }: Props) {
   const reviewedRequests = db.product_request.filter(
     (request) => request.status !== "Pending Product Review",
   );
+  const firstPrices = admin
+    ? db.price_request.filter(
+        (request) =>
+          request.status === "Pending Price Review" &&
+          request.previous_price === null,
+      ).length
+    : 0;
   const catalogUnits = admin ? activeCatalogUnits(db) : [];
   const columns: ComponentProps<typeof Table>["columns"] = [
     { key: "product_request_id", label: "Request" },
@@ -319,6 +325,19 @@ export function ProductRequests({ db, admin }: Props) {
 
   return (
     <>
+      {admin && (
+        <Panel title="First selling prices">
+          <p>
+            Owners add products in their own store and submit a first price for
+            approval.
+            {firstPrices > 0 &&
+              ` First prices waiting for review: ${firstPrices}.`}
+          </p>
+          <Link className="button small" href="/workspace/prices">
+            Open Price approvals
+          </Link>
+        </Panel>
+      )}
       <Panel title={admin ? "Waiting for review" : "My product requests"}>
         <Table
           rows={admin ? pendingRequests : db.product_request}
@@ -333,7 +352,7 @@ export function ProductRequests({ db, admin }: Props) {
       {admin && pendingRequests.length > 0 && (
         <Panel
           title="Review a product request"
-          description="Choose the matching pack size to approve a request, or give a reason for rejecting it."
+          description="For a catalog request, choose the exact matching pack and enter a decision reason, or reject it with a reason."
         >
           <p className="muted-text">
             If the pack size is missing,{" "}

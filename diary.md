@@ -2,6 +2,10 @@
 
 Read the newest entry first. For setup, workspace locations and role workflows, start with the [contributor guide](AGENTS.md). Add dated entries for changes that affect how people use, operate or develop the system. Include the decision, verification and outstanding work. Keep account credentials and customer or store records out of the diary.
 
+## 2026-11-24 — Route new products to first-price approval
+
+Product requests now points Administrators to Price approvals and shows the number of first prices awaiting review. Catalog requests retain their exact active pack and reason requirements. My products points Owners to Set price on the item. Lint, nine unit tests and build passed. A local browser check verified the first-price count and link using fixture data.
+
 ## 2026-11-24 — Remove repeated navigation and empty-state clutter
 
 Overview keeps the suggested next action and status counts. Removed the Common tasks grid because it repeated the workspace sidebar. The public catalog now uses the header as the entry point for registration and shows availability guidance only when listings are present. Lint, nine unit tests and the production build passed.
