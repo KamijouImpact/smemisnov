@@ -103,7 +103,7 @@ export function SidebarLayout({
                 aria-current={onBusinessSettingsPage ? "page" : undefined}
                 className={navLink}
               >
-                BUSINESS SETTINGS
+                {canManageAccounts ? "BUSINESSES" : "BUSINESS SETTINGS"}
               </Link>
             )}
             <Link

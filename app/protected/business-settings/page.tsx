@@ -62,54 +62,88 @@ async function Settings() {
     >
       <section className="max-w-5xl space-y-5">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Business settings
+          {admin ? "Businesses" : "Business settings"}
         </h1>
-        {records.error || choices?.error || location?.error ? (
+        {admin ? (
+          <>
+            <div
+              role="tablist"
+              aria-label="Business sections"
+              className="border-b"
+            >
+              <button
+                type="button"
+                id="business-applications-tab"
+                role="tab"
+                aria-selected="true"
+                aria-controls="business-applications-panel"
+                className="-mb-px min-h-11 border-b-2 border-primary px-1 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Business Applications
+              </button>
+            </div>
+            <div
+              id="business-applications-panel"
+              role="tabpanel"
+              aria-labelledby="business-applications-tab"
+              tabIndex={0}
+              className="space-y-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {records.error && (
+                <p
+                  role="alert"
+                  className="rounded-xl border p-5 text-sm text-destructive"
+                >
+                  Could not load business applications. Refresh to try again.
+                </p>
+              )}
+              {!records.error && businesses.length === 0 && (
+                <p className="rounded-xl border p-5 text-sm text-muted-foreground">
+                  No business profiles have been submitted yet.
+                </p>
+              )}
+              {(["pending", "active", "paused"] as const).map((status) => {
+                const group = businesses.filter(
+                  (item) => item.status === status,
+                );
+                if (!group.length) return null;
+                return (
+                  <section key={status} className="space-y-2">
+                    <h2 className="font-semibold">
+                      {statuses[status]} ({group.length})
+                    </h2>
+                    <Card>
+                      <ul className="divide-y">
+                        {group.map((item) => (
+                          <li
+                            key={item.owner_id}
+                            className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                          >
+                            <div className="min-w-0 space-y-1">
+                              <p className="break-words font-medium">
+                                {item.business_name}
+                              </p>
+                              <p className="break-words text-sm text-muted-foreground">
+                                {item.business_type} · {item.address}
+                              </p>
+                            </div>
+                            <ReviewForm business={item} />
+                          </li>
+                        ))}
+                      </ul>
+                    </Card>
+                  </section>
+                );
+              })}
+            </div>
+          </>
+        ) : records.error || choices?.error || location?.error ? (
           <p
             role="alert"
             className="rounded-xl border p-5 text-sm text-destructive"
           >
             Could not load business settings. Refresh to try again.
           </p>
-        ) : admin ? (
-          <>
-            {businesses.length === 0 && (
-              <p className="rounded-xl border p-5 text-sm text-muted-foreground">
-                No business profiles have been submitted yet.
-              </p>
-            )}
-            {(["pending", "active", "paused"] as const).map((status) => {
-              const group = businesses.filter((item) => item.status === status);
-              if (!group.length) return null;
-              return (
-                <section key={status} className="space-y-2">
-                  <h2 className="font-semibold">
-                    {statuses[status]} ({group.length})
-                  </h2>
-                  <Card>
-                    <ul className="divide-y">
-                      {group.map((item) => (
-                        <li
-                          key={item.owner_id}
-                          className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                        >
-                          <div className="min-w-0 space-y-1">
-                            <p className="break-words font-medium">
-                              {item.business_name}
-                            </p>
-                            <p className="break-words text-sm text-muted-foreground">
-                              {item.business_type} · {item.address}
-                            </p>
-                          </div>
-                          <ReviewForm business={item} />
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                </section>
-              );
-            })}
-          </>
         ) : (
           <Card className="max-w-xl space-y-5 p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2">
