@@ -16,7 +16,7 @@ export async function getViewer() {
 
   const { data: account } = await supabase
     .from("account_roles")
-    .select("account_type")
+    .select("account_type, suspended_at")
     .eq("user_id", data.claims.sub)
     .single();
 
@@ -26,6 +26,7 @@ export async function getViewer() {
     supabase,
     email: data.claims.email,
     role: account.account_type,
+    suspended: account.suspended_at !== null,
     roleName: accountNames.get(account.account_type),
   };
 }

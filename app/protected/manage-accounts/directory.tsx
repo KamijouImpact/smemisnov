@@ -172,8 +172,8 @@ export function Directory({ accounts }: { accounts: DirectoryAccount[] }) {
             </strong>
           )}
           {selectedIsSuspended
-            ? "They’ll be able to log in again."
-            : "This ends their current sessions and blocks future sign-ins until an Administrator unsuspends them."}
+            ? "This restores their account access."
+            : "They can still log in and see their suspension notice. Account features will be restricted until they are unsuspended."}
         </p>
         {error && (
           <p role="alert" className="mt-3 text-sm text-destructive">
