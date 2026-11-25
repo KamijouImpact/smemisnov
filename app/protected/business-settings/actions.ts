@@ -16,7 +16,9 @@ export async function saveBusiness(
   const { error } = await viewer.supabase.rpc("save_business_profile", {
     name_input: String(fields.get("name") ?? ""),
     type_input: String(fields.get("type") ?? ""),
-    address_input: String(fields.get("address") ?? ""),
+    barangay_input: String(fields.get("barangay") ?? ""),
+    detail_input: String(fields.get("location_detail") ?? ""),
+    place_input: String(fields.get("google_place_id") ?? ""),
   });
   if (error)
     return {

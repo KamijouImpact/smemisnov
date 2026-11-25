@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/card";
 import { getViewer } from "@/lib/viewer";
 import { ProfileForm, ReviewForm, type Business } from "./forms";
 
+import type { Location } from "./location-picker";
+
 const statuses = {
   pending: "Waiting for approval",
   active: "Active",
@@ -31,7 +33,9 @@ async function Settings() {
   const [records, choices] = await Promise.all([
     viewer.supabase
       .from("businesses")
-      .select("owner_id,business_name,business_type,address,status,updated_at")
+      .select(
+        "owner_id,business_name,business_type,address,status,updated_at,barangay_code,location_detail,google_place_id",
+      )
       .order("business_name")
       .order("owner_id"),
     admin
@@ -40,6 +44,12 @@ async function Settings() {
   ]);
   const businesses = (records.data ?? []) as Business[];
   const business = businesses[0];
+  const location =
+    !admin && business?.barangay_code
+      ? await viewer.supabase.rpc("psgc_location_path", {
+          location_code: business.barangay_code,
+        })
+      : null;
 
   return (
     <SidebarLayout
@@ -54,7 +64,7 @@ async function Settings() {
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           Business settings
         </h1>
-        {records.error || choices?.error ? (
+        {records.error || choices?.error || location?.error ? (
           <p
             role="alert"
             className="rounded-xl border p-5 text-sm text-destructive"
@@ -114,6 +124,8 @@ async function Settings() {
             <ProfileForm
               key={business?.updated_at}
               business={business}
+              locationPath={(location?.data ?? []) as Location[]}
+              mapsKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
               types={(choices?.data ?? []).map((choice) => choice.label)}
             />
           </Card>

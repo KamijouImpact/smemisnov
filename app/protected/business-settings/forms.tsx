@@ -6,11 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { reviewBusiness, saveBusiness, type Result } from "./actions";
 
+import { LocationPicker, type Location } from "./location-picker";
+import { GoogleLocation } from "./google-location";
+
 export type Business = {
   owner_id: string;
   business_name: string;
   business_type: string;
   address: string;
+  barangay_code: string | null;
+  location_detail: string | null;
+  google_place_id: string | null;
   status: "pending" | "active" | "paused";
   updated_at: string;
 };
@@ -33,9 +39,13 @@ function Feedback({ result }: { result: Result }) {
 export function ProfileForm({
   business,
   types,
+  locationPath,
+  mapsKey,
 }: {
   business?: Business;
   types: string[];
+  locationPath: Location[];
+  mapsKey?: string;
 }) {
   const [result, action, pending] = useActionState(saveBusiness, {
     message: "",
@@ -72,15 +82,31 @@ export function ProfileForm({
           ))}
         </select>
       </div>
+      {mapsKey ? (
+        <GoogleLocation
+          apiKey={mapsKey}
+          initialId={business?.google_place_id}
+        />
+      ) : (
+        <input
+          type="hidden"
+          name="google_place_id"
+          value={business?.google_place_id ?? ""}
+        />
+      )}
+      {business && !business.barangay_code && (
+        <p className="text-sm text-muted-foreground">
+          Previous address: {business.address}
+        </p>
+      )}
+      <LocationPicker initialPath={locationPath} />
       <div className="grid gap-2">
-        <Label htmlFor="business-address">Business address</Label>
+        <Label htmlFor="location-detail">Street or building (optional)</Label>
         <Input
-          id="business-address"
-          name="address"
-          required
-          minLength={5}
-          maxLength={240}
-          defaultValue={business?.address}
+          id="location-detail"
+          name="location_detail"
+          maxLength={100}
+          defaultValue={business?.location_detail ?? ""}
           className="h-11"
         />
       </div>
