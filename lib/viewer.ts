@@ -20,10 +20,12 @@ export async function getViewer() {
     .eq("user_id", data.claims.sub)
     .single();
 
+  if (!account) return null;
+
   return {
     supabase,
     email: data.claims.email,
-    role: account?.account_type,
-    roleName: accountNames.get(account?.account_type),
+    role: account.account_type,
+    roleName: accountNames.get(account.account_type),
   };
 }
