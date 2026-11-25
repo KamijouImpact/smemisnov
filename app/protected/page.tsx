@@ -16,6 +16,11 @@ async function Account() {
   return (
     <SidebarLayout
       onAccountPage
+      canManageBusiness={Boolean(
+        viewer &&
+          !viewer.suspended &&
+          (viewer.role === "owner" || viewer.role === "admin"),
+      )}
       canManageAccounts={viewer.role === "admin"}
       accountMenu={
         <AccountMenu

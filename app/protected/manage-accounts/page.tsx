@@ -68,6 +68,7 @@ async function ManageAccounts({ searchParams }: { searchParams: Search }) {
 
   return (
     <SidebarLayout
+      canManageBusiness
       canManageAccounts
       onManageAccountsPage
       accountMenu={

@@ -19,12 +19,16 @@ export function SidebarLayout({
   onAccountPage = false,
   canManageAccounts = false,
   onManageAccountsPage = false,
+  canManageBusiness = false,
+  onBusinessSettingsPage = false,
 }: {
   children: ReactNode;
   accountMenu: ReactNode;
   onAccountPage?: boolean;
   canManageAccounts?: boolean;
   onManageAccountsPage?: boolean;
+  canManageBusiness?: boolean;
+  onBusinessSettingsPage?: boolean;
 }) {
   const sidebarId = useId();
   const isWide = useSyncExternalStore(
@@ -91,6 +95,15 @@ export function SidebarLayout({
                 className={navLink}
               >
                 MANAGE ACCOUNTS
+              </Link>
+            )}
+            {canManageBusiness && (
+              <Link
+                href="/protected/business-settings"
+                aria-current={onBusinessSettingsPage ? "page" : undefined}
+                className={navLink}
+              >
+                BUSINESS SETTINGS
               </Link>
             )}
             <Link
